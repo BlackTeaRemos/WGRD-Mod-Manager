@@ -1,0 +1,95 @@
+find_package(unofficial-sodium CONFIG REQUIRED)
+find_package(blake3 CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+
+wgrd_add_module(manager
+    SOURCES
+        order/OrderFileGateway.h
+        order/OrderFileGateway.cpp
+        inspect/OrderInspector.h
+        inspect/OrderInspector.cpp
+        scan/ModFolderScanner.h
+        scan/ModFolderScanner.cpp
+        environment/GameLocator.h
+        environment/GameLocator.cpp
+        service/OrderService.h
+        service/OrderService.cpp
+        protection/WindowsDataProtection.h
+        protection/WindowsDataProtection.cpp
+        trust/SodiumRuntime.h
+        trust/SodiumRuntime.cpp
+        trust/FingerprintDeriver.h
+        trust/FingerprintDeriver.cpp
+        trust/ManifestEnvelope.h
+        trust/ManifestEnvelope.cpp
+        trust/KeyRegistry.h
+        trust/KeyRegistry.cpp
+        trust/ManifestAuthenticator.h
+        trust/ManifestAuthenticator.cpp
+        publish/SigningKeyStore.h
+        publish/SigningKeyStore.cpp
+        publish/ManifestSigner.h
+        publish/ManifestSigner.cpp
+        publish/PublisherKeyExporter.h
+        publish/PublisherKeyExporter.cpp
+        payload/PayloadPathPolicy.h
+        payload/PayloadPathPolicy.cpp
+        hash/Blake3Hasher.h
+        hash/Blake3Hasher.cpp
+        io/MappedFile.h
+        io/MappedFile.cpp
+        manifest/ManifestBuilder.h
+        manifest/ManifestBuilder.cpp
+        manifest/ManifestCodec.h
+        manifest/ManifestCodec.cpp
+        trust/DirectoryKeyRegistry.h
+        trust/DirectoryKeyRegistry.cpp
+        announce/AnnounceCodec.h
+        announce/AnnounceCodec.cpp
+        announce/AnnounceReceiver.h
+        announce/AnnounceReceiver.cpp
+        publish/AnnounceSigner.h
+        publish/AnnounceSigner.cpp
+        install/ManifestDiffer.h
+        install/ManifestDiffer.cpp
+        install/StagedChunkSource.h
+        install/StagedChunkSource.cpp
+        install/ContentInstaller.h
+        install/ContentInstaller.cpp
+        manifest/ManifestStore.h
+        manifest/ManifestStore.cpp
+        service/PublishService.h
+        service/PublishService.cpp
+        service/InstallService.h
+        service/InstallService.cpp
+        service/CatalogService.h
+        service/CatalogService.cpp
+        service/UpdateService.h
+        service/UpdateService.cpp
+        service/RegistryUpdateService.h
+        service/RegistryUpdateService.cpp
+        update/VersionNumber.h
+        update/VersionNumber.cpp
+        update/HttpsClient.h
+        update/HttpsClient.cpp
+        update/GitHubReleaseSource.h
+        update/GitHubReleaseSource.cpp
+        update/GitHubContentsSource.h
+        update/GitHubContentsSource.cpp
+        update/ExecutableSwapper.h
+        update/ExecutableSwapper.cpp
+    DEPS
+        domain
+)
+
+target_link_libraries(wgrd_manager PUBLIC
+    unofficial-sodium::sodium
+    BLAKE3::blake3
+    nlohmann_json::nlohmann_json
+    crypt32
+    winhttp
+)
+
+if(WGRD_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()

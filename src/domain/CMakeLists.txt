@@ -1,0 +1,73 @@
+wgrd_add_module(domain
+    SOURCES
+        types/content/ChunkDigest.h
+        types/content/ChunkFileNaming.h
+        types/content/ChunkSetTorrentDescription.h
+        types/content/ChunkSizes.cpp
+        types/content/ChunkSizes.h
+        types/content/ChunkSpan.h
+        types/content/ManifestChunk.h
+        types/content/ManifestFile.h
+        types/content/ModManifest.cpp
+        types/content/ModManifest.h
+        types/distribution/InstallPlan.cpp
+        types/distribution/InstallPlan.h
+        types/distribution/SignedAnnounce.h
+        types/distribution/TransportLimits.h
+        types/game/GameBuild.cpp
+        types/game/GameBuild.h
+        types/game/GameInstallation.cpp
+        types/game/GameInstallation.h
+        types/identity/FixedBytes.h
+        types/identity/PublicKey.h
+        types/identity/PublisherFingerprint.h
+        types/identity/PublisherIdentity.h
+        types/identity/RegisteredKey.h
+        types/identity/Signature.h
+        types/order/Annotation.h
+        types/order/InstalledMod.cpp
+        types/order/InstalledMod.h
+        types/order/InstallFolder.cpp
+        types/order/InstallFolder.h
+        types/order/LoadOrder.cpp
+        types/order/LoadOrder.h
+        types/order/ModIdentifier.cpp
+        types/order/ModIdentifier.h
+        types/status/CatalogRow.h
+        types/status/SeedEntry.h
+        types/status/InstallProgress.h
+        types/status/PublishedRelease.h
+        types/status/PublisherState.h
+        types/status/RegistryStatus.h
+        types/status/UpdateStatus.h
+        interfaces/content/IChunkFetcher.h
+        interfaces/content/IChunkSource.h
+        interfaces/content/IChunkSetTorrentBuilder.h
+        interfaces/content/IContentChunker.h
+        interfaces/content/IContentHasher.h
+        interfaces/content/IManifestBuilder.h
+        interfaces/content/IManifestCodec.h
+        interfaces/content/IManifestDiffer.h
+        interfaces/content/IPayloadPathPolicy.h
+        interfaces/order/IOrderInspector.h
+        interfaces/order/IOrderService.h
+        interfaces/services/ICatalogService.h
+        interfaces/services/ISeedingService.h
+        interfaces/services/IInstallService.h
+        interfaces/services/IPublishService.h
+        interfaces/services/ISwarmService.h
+        interfaces/services/IUpdateService.h
+        interfaces/trust/IAnnounceReceiver.h
+        interfaces/trust/IDataProtection.h
+        interfaces/trust/IKeyRegistry.h
+        interfaces/trust/IManifestAuthenticator.h
+        interfaces/trust/IManifestSigner.h
+        interfaces/trust/IRegistryUpdater.h
+        interfaces/trust/ISigningKeyStore.h
+)
+
+if(WGRD_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
+
+target_include_directories(wgrd_domain PUBLIC "${CMAKE_BINARY_DIR}/generated")

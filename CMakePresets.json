@@ -1,0 +1,80 @@
+﻿{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/build/${presetName}/install",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+        "VCPKG_HOST_TRIPLET": "x64-windows-static"
+      }
+    },
+    {
+      "name": "windows-debug",
+      "displayName": "Ninja Debug",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "windows-release",
+      "displayName": "Ninja Release",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
+      }
+    },
+    {
+      "name": "windows-relwithdebinfo",
+      "displayName": "Ninja RelWithDebInfo",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "windows-vs",
+      "displayName": "Visual Studio 2026",
+      "inherits": "base",
+      "generator": "Visual Studio 18 2026",
+      "architecture": "x64"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-debug",
+      "configurePreset": "windows-debug"
+    },
+    {
+      "name": "windows-release",
+      "configurePreset": "windows-release"
+    },
+    {
+      "name": "windows-relwithdebinfo",
+      "configurePreset": "windows-relwithdebinfo"
+    },
+    {
+      "name": "windows-vs-debug",
+      "configurePreset": "windows-vs",
+      "configuration": "Debug"
+    },
+    {
+      "name": "windows-vs-release",
+      "configurePreset": "windows-vs",
+      "configuration": "Release"
+    }
+  ]
+}

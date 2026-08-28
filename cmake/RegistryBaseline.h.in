@@ -1,0 +1,22 @@
+#pragma once
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <string_view>
+
+namespace wgrd::domain::registry {
+
+struct BaselineKey {
+    std::string_view fingerprint;
+    std::string_view publisher;
+    bool revoked;
+    std::array<std::uint8_t, 32> publicKey;
+};
+
+inline constexpr std::size_t KEY_COUNT = @WGRD_REGISTRY_KEY_COUNT@;
+
+inline constexpr std::array<BaselineKey, KEY_COUNT> KEYS = {
+@WGRD_REGISTRY_ENTRIES@};
+
+}

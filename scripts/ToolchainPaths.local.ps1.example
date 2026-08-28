@@ -1,0 +1,4 @@
+$TOOLCHAIN_VISUAL_STUDIO_ROOT = 'C:\Programs\VisualStudio\26'
+$TOOLCHAIN_CMAKE_BIN          = 'C:\Programs\CMake\bin'
+$TOOLCHAIN_NINJA_BIN          = ''
+$TOOLCHAIN_VCPKG_ROOT         = 'C:\Programs\vcpkg'

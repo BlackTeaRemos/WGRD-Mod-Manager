@@ -1,0 +1,145 @@
+name: Build and release
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+env:
+  BUILD_PRESET: windows-release
+  EXE_NAME: wgrd-mod-manager.exe
+  TARGET: x64-windows-static
+  INDEX_REPOSITORY: ${{ vars.WGRD_INDEX_REPOSITORY }}
+  RELEASE_REPOSITORY: ${{ vars.WGRD_RELEASE_REPOSITORY }}
+
+jobs:
+  build:
+    runs-on: windows-2025
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          token: ${{ secrets.REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Check registry checkout
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "registry/keys")) {
+            throw "registry submodule missing"
+          }
+          $keys = @(Get-ChildItem "registry/keys" -Filter "*.json")
+          Write-Host "registry keys $($keys.Count)"
+
+      - name: Route vcpkg cache
+        uses: actions/github-script@v8
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Check build variables
+        shell: pwsh
+        run: |
+          $missing = @()
+          if (-not $env:INDEX_REPOSITORY) { $missing += "WGRD_INDEX_REPOSITORY" }
+          if (-not $env:RELEASE_REPOSITORY) { $missing += "WGRD_RELEASE_REPOSITORY" }
+          if ($missing.Count -gt 0) {
+            throw "missing repository variables $($missing -join ' ')"
+          }
+          Write-Host "index $env:INDEX_REPOSITORY"
+          Write-Host "release $env:RELEASE_REPOSITORY"
+
+      - name: Configure and build
+        shell: pwsh
+        env:
+          VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+        run: |
+          . ./scripts/Enter-BuildEnvironment.ps1
+
+          $probe = Join-Path $env:RUNNER_TEMP 'std-probe.cpp'
+          'template<long V> struct Report; Report<__cplusplus> emit;' | Set-Content -LiteralPath $probe -Encoding ascii
+          $probeOutput = (cl /nologo /std:c++latest /Zc:__cplusplus /Zs $probe 2>&1 | Out-String)
+          if ($probeOutput -notmatch 'Report<(\d+)>') {
+            throw "std probe failed"
+          }
+          $standardLevel = [int]$matches[1]
+          if ($standardLevel -lt 202400) {
+            throw "cpp26 unavailable $standardLevel"
+          }
+          Write-Host "cpp level $standardLevel"
+
+          cmake --preset $env:BUILD_PRESET `
+            "-DWGRD_COMMIT=${{ github.sha }}" `
+            "-DWGRD_BRANCH=${{ github.ref_name }}" `
+            "-DWGRD_SOURCE_REPOSITORY=${{ github.repository }}" `
+            "-DWGRD_RELEASE_REPOSITORY=${{ env.RELEASE_REPOSITORY }}" `
+            "-DWGRD_INDEX_REPOSITORY=${{ env.INDEX_REPOSITORY }}"
+
+          cmake --build --preset $env:BUILD_PRESET
+
+      - name: Run tests
+        shell: pwsh
+        run: |
+          . ./scripts/Enter-BuildEnvironment.ps1
+          ctest --test-dir "build/$env:BUILD_PRESET" --output-on-failure
+
+      - name: Package
+        id: package
+        shell: pwsh
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          if ($env:REF_TYPE -eq "tag") {
+            $version = $env:REF_NAME.TrimStart("v")
+          } else {
+            $version = "dev-" + $env:SHA.Substring(0, 7)
+          }
+
+          $built = Get-ChildItem -Path "build" -Recurse -Filter $env:EXE_NAME -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if (-not $built) {
+            throw "executable not found"
+          }
+
+          $asset = "wgrd-mod-manager-$version-${{ env.TARGET }}.zip"
+          Compress-Archive -Path $built.FullName -DestinationPath $asset -Force
+
+          Copy-Item -LiteralPath $built.FullName -Destination $env:EXE_NAME -Force
+          $digest = (Get-FileHash -LiteralPath $env:EXE_NAME -Algorithm SHA256).Hash.ToLower()
+
+          "asset=$asset"     | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "digest=$digest"   | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "packaged $asset"
+          Write-Host "digest $digest"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wgrd-mod-manager-windows
+          path: ${{ steps.package.outputs.asset }}
+          retention-days: 14
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: WGRD Mod Manager ${{ steps.package.outputs.version }}
+          files: |
+            ${{ steps.package.outputs.asset }}
+            ${{ env.EXE_NAME }}
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          body: |
+            Windows x64 self-contained executable
+
+            sha256 ${{ steps.package.outputs.digest }}

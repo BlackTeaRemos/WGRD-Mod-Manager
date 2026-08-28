@@ -1,0 +1,3 @@
+[submodule "registry"]
+	path = registry
+	url = https://github.com/BlackTeaRemos/WGRD-Mod-Manager-Signatures.git

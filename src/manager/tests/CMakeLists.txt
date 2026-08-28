@@ -1,0 +1,13 @@
+wgrd_add_tests(manager
+    SOURCES
+        OrderFileGatewayTests.cpp
+        OrderInspectorTests.cpp
+        ManifestEnvelopeTests.cpp
+        PublishSigningTests.cpp
+        PayloadPathPolicyTests.cpp
+        ManifestPipelineTests.cpp
+        UpdateRoundTripTests.cpp
+        AnnounceTests.cpp
+        UpdateTests.cpp
+        InstallServiceTests.cpp
+)

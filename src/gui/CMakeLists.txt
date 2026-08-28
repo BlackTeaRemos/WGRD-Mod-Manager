@@ -1,0 +1,51 @@
+﻿find_package(imgui CONFIG REQUIRED)
+
+wgrd_add_module(gui
+    SOURCES
+        Application.h
+        Application.cpp
+        design/Tokens.h
+        design/Primitives.h
+        design/Primitives.cpp
+        fixtures/Fixtures.h
+        fixtures/Fixtures.cpp
+        modals/Modals.h
+        modals/Modals.cpp
+        platform/WineDetection.h
+        platform/WineDetection.cpp
+        platform/Win32Window.h
+        platform/Win32Window.cpp
+        render/IRenderBackend.h
+        render/Direct3D11Backend.h
+        render/Direct3D11Backend.cpp
+        render/RenderBackendProbe.h
+        render/RenderBackendProbe.cpp
+        screens/ScreenArea.h
+        screens/ScreenToolbar.h
+        screens/ScreenToolbar.cpp
+        screens/CatalogScreen.h
+        screens/CatalogScreen.cpp
+        screens/OrderScreen.h
+        screens/OrderScreen.cpp
+        screens/TransfersScreen.h
+        screens/TransfersScreen.cpp
+        screens/ProfilesScreen.h
+        screens/ProfilesScreen.cpp
+        screens/PublishScreen.h
+        screens/PublishScreen.cpp
+        screens/Screens.h
+        screens/Screens.cpp
+        shell/NavigationRail.h
+        shell/NavigationRail.cpp
+        shell/StatusBar.h
+        shell/StatusBar.cpp
+        shell/TitleBar.h
+        shell/TitleBar.cpp
+        state/ApplicationServices.h
+        state/ApplicationState.h
+        state/ApplicationState.cpp
+    DEPS
+        domain
+)
+
+target_link_libraries(wgrd_gui PUBLIC imgui::imgui d3d11 dxgi dwmapi)

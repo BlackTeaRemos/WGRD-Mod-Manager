@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "wgrd-mod-manager",
+  "version": "0.1.0",
+  "description": "Wargame Red Dragon mods",
+  "dependencies": [
+    {
+      "name": "libtorrent",
+      "default-features": false
+    },
+    {
+      "name": "imgui",
+      "features": [
+        "freetype",
+        "win32-binding",
+        "dx11-binding",
+        "dx12-binding",
+        "vulkan-binding",
+        "opengl3-binding"
+      ]
+    },
+    "freetype",
+    "sqlite3",
+    "libsodium",
+    "blake3",
+    "libgit2",
+    "nlohmann-json",
+    "catch2"
+  ]
+}

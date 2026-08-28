@@ -1,0 +1,5 @@
+﻿add_subdirectory(domain)
+add_subdirectory(manager)
+add_subdirectory(downloader)
+add_subdirectory(gui)
+add_subdirectory(app)
