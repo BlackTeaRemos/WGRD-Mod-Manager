@@ -9,19 +9,18 @@
 #include <vector>
 
 namespace wgrd::downloader {
-
 class ChunkFolderSource final : public domain::IChunkSource {
 public:
-    explicit ChunkFolderSource(std::filesystem::path chunkFolder);
+	explicit ChunkFolderSource(std::filesystem::path chunkFolder);
 
-    ~ChunkFolderSource() override;
+	~ChunkFolderSource() override;
 
-    [[nodiscard]] std::expected<std::vector<std::byte>, domain::ChunkFetchError> Fetch(
-        const domain::ChunkDigest& digest,
-        std::uint32_t length) override;
+	[[nodiscard]] std::expected<std::vector<std::byte>, domain::ChunkFetchError> Fetch(
+		const domain::ChunkDigest& digest,
+		std::uint32_t length
+	) override;
 
 private:
-    std::filesystem::path _chunkFolder;
+	std::filesystem::path _chunkFolder;
 };
-
 }

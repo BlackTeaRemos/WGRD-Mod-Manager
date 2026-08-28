@@ -10,24 +10,22 @@
 #include <vector>
 
 namespace wgrd::downloader {
-
 struct ChunkSetEntry {
-    std::string fileName;
-    domain::ChunkDigest digest;
-    std::uint32_t length;
+	std::string fileName;
+	domain::ChunkDigest digest;
+	std::uint32_t length;
 
-    bool operator==(const ChunkSetEntry& other) const = default;
+	bool operator==(const ChunkSetEntry& other) const = default;
 };
 
 class ChunkSetLayout {
 public:
-    static constexpr std::string_view CHUNK_SUFFIX = ".chunk";
+	static constexpr std::string_view CHUNK_SUFFIX = ".chunk";
 
-    [[nodiscard]] static std::vector<ChunkSetEntry> Describe(const domain::ModManifest& manifest);
+	[[nodiscard]] static std::vector<ChunkSetEntry> Describe(const domain::ModManifest& manifest);
 
-    [[nodiscard]] static std::uint64_t TotalBytes(std::span<const ChunkSetEntry> entries);
+	[[nodiscard]] static std::uint64_t TotalBytes(std::span<const ChunkSetEntry> entries);
 
-    [[nodiscard]] static std::string FileNameFor(const domain::ChunkDigest& digest);
+	[[nodiscard]] static std::string FileNameFor(const domain::ChunkDigest& digest);
 };
-
 }

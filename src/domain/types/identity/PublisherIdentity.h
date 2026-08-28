@@ -4,10 +4,8 @@
 #include "domain/types/identity/PublisherFingerprint.h"
 
 namespace wgrd::domain {
-
 struct PublisherIdentity {
-    PublisherFingerprint fingerprint;
-    PublicKey publicKey;
+	PublisherFingerprint fingerprint;
+	PublicKey publicKey;
 };
-
 }

@@ -9,18 +9,17 @@
 #include <vector>
 
 namespace wgrd::manager {
-
 class ManifestSigner final : public domain::IManifestSigner {
 public:
-    explicit ManifestSigner(const domain::ISigningKeyStore& keyStore);
+	explicit ManifestSigner(const domain::ISigningKeyStore& keyStore);
 
-    ~ManifestSigner() override;
+	~ManifestSigner() override;
 
-    [[nodiscard]] std::expected<std::vector<std::uint8_t>, domain::ManifestSignerError> Seal(
-        std::span<const std::uint8_t> payload) const override;
+	[[nodiscard]] std::expected<std::vector<std::uint8_t>, domain::ManifestSignerError> Seal(
+		std::span<const std::uint8_t> payload
+	) const override;
 
 private:
-    const domain::ISigningKeyStore* _keyStore;
+	const domain::ISigningKeyStore* _keyStore;
 };
-
 }

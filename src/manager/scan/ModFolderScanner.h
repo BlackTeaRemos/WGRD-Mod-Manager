@@ -6,13 +6,11 @@
 #include <vector>
 
 namespace wgrd::manager {
-
 class ModFolderScanner {
 public:
-    [[nodiscard]] static std::vector<domain::InstalledMod> Scan(const std::filesystem::path& modsDirectory);
+	[[nodiscard]] static std::vector<domain::InstalledMod> Scan(const std::filesystem::path& modsDirectory);
 
 private:
-    static std::vector<domain::GameBuild> ReadBuilds_(const std::filesystem::path& modDirectory);
+	static std::vector<domain::GameBuild> ReadBuilds_(const std::filesystem::path& modDirectory);
 };
-
 }

@@ -5,28 +5,26 @@
 #include <string_view>
 
 namespace wgrd::domain {
-
 enum class ModIdentifierError {
-    Empty,
-    IllegalCharacter,
-    LeadingHyphen,
-    TrailingHyphen
+	Empty
+	, IllegalCharacter
+	, LeadingHyphen
+	, TrailingHyphen
 };
 
 class ModIdentifier {
 public:
-    static std::expected<ModIdentifier, ModIdentifierError> Parse(std::string_view text);
+	static std::expected<ModIdentifier, ModIdentifierError> Parse(std::string_view text);
 
-    [[nodiscard]] const std::string& Value() const noexcept;
+	[[nodiscard]] const std::string& Value() const noexcept;
 
-    bool operator==(const ModIdentifier& other) const noexcept = default;
+	bool operator==(const ModIdentifier& other) const noexcept = default;
 
 private:
-    explicit ModIdentifier(std::string value);
+	explicit ModIdentifier(std::string value);
 
-    static bool IsLegalCharacter_(char character) noexcept;
+	static bool IsLegalCharacter_(char character) noexcept;
 
-    std::string _value;
+	std::string _value;
 };
-
 }

@@ -7,14 +7,14 @@ wgrd_add_module(gui
         design/Tokens.h
         design/Primitives.h
         design/Primitives.cpp
-        fixtures/Fixtures.h
-        fixtures/Fixtures.cpp
         modals/Modals.h
         modals/Modals.cpp
         platform/WineDetection.h
         platform/WineDetection.cpp
         platform/Win32Window.h
         platform/Win32Window.cpp
+        platform/Win32FilePicker.h
+        platform/Win32FilePicker.cpp
         render/IRenderBackend.h
         render/Direct3D11Backend.h
         render/Direct3D11Backend.cpp
@@ -25,6 +25,9 @@ wgrd_add_module(gui
         screens/ScreenToolbar.cpp
         screens/CatalogScreen.h
         screens/CatalogScreen.cpp
+        design/PassphraseMeter.h
+        design/PassphraseMeter.cpp
+        text/PassphraseText.h
         screens/OrderScreen.h
         screens/OrderScreen.cpp
         screens/TransfersScreen.h
@@ -41,6 +44,14 @@ wgrd_add_module(gui
         shell/StatusBar.cpp
         shell/TitleBar.h
         shell/TitleBar.cpp
+        text/CommonText.h
+        text/ShellText.h
+        text/CatalogText.h
+        text/OrderText.h
+        text/TransfersText.h
+        text/ProfilesText.h
+        text/PublishText.h
+        text/ModalText.h
         state/ApplicationServices.h
         state/ApplicationState.h
         state/ApplicationState.cpp

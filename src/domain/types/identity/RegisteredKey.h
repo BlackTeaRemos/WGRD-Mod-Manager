@@ -6,12 +6,10 @@
 #include <string>
 
 namespace wgrd::domain {
-
 struct RegisteredKey {
-    PublisherFingerprint fingerprint;
-    PublicKey publicKey;
-    std::string publisher;
-    bool revoked;
+	PublisherFingerprint fingerprint;
+	PublicKey publicKey;
+	std::string publisher;
+	bool revoked;
 };
-
 }

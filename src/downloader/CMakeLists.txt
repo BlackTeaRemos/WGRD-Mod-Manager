@@ -2,6 +2,20 @@ find_package(LibtorrentRasterbar CONFIG REQUIRED)
 
 wgrd_add_module(downloader
     SOURCES
+        announce/AnnounceWireCodec.h
+        announce/AnnounceWireCodec.cpp
+        announce/PeerAnnounceBudget.h
+        announce/PeerAnnounceBudget.cpp
+        announce/AnnounceExchange.h
+        announce/AnnounceExchange.cpp
+        announce/AnnounceGossipPeerPlugin.h
+        announce/AnnounceGossipPeerPlugin.cpp
+        announce/AnnounceGossipTorrentPlugin.h
+        announce/AnnounceGossipTorrentPlugin.cpp
+        announce/AnnounceGossipPlugin.h
+        announce/AnnounceGossipPlugin.cpp
+        announce/ControlSwarmTorrent.h
+        announce/ControlSwarmTorrent.cpp
         chunk/GearTable.h
         chunk/FastCdcChunker.h
         chunk/FastCdcChunker.cpp

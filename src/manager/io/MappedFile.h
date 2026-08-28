@@ -6,41 +6,38 @@
 #include <span>
 
 namespace wgrd::manager {
-
 enum class MappedFileError {
-    NotFound,
-    Unopenable,
-    Unmappable
+	NotFound, Unopenable, Unmappable
 };
 
 class MappedFile {
 public:
-    MappedFile() noexcept;
+	MappedFile() noexcept;
 
-    MappedFile(const MappedFile&) = delete;
+	MappedFile(const MappedFile&) = delete;
 
-    MappedFile& operator=(const MappedFile&) = delete;
+	MappedFile& operator=(const MappedFile&) = delete;
 
-    MappedFile(MappedFile&& other) noexcept;
+	MappedFile(MappedFile&& other) noexcept;
 
-    MappedFile& operator=(MappedFile&& other) noexcept;
+	MappedFile& operator=(MappedFile&& other) noexcept;
 
-    ~MappedFile();
+	~MappedFile();
 
-    [[nodiscard]] static std::expected<MappedFile, MappedFileError> Open(
-        const std::filesystem::path& path);
+	[[nodiscard]] static std::expected<MappedFile, MappedFileError> Open(
+		const std::filesystem::path& path
+	);
 
-    [[nodiscard]] std::span<const std::byte> Data() const noexcept;
+	[[nodiscard]] std::span<const std::byte> Data() const noexcept;
 
-    [[nodiscard]] std::size_t Size() const noexcept;
+	[[nodiscard]] std::size_t Size() const noexcept;
 
 private:
-    void Release_() noexcept;
+	void Release_() noexcept;
 
-    void* _fileHandle;
-    void* _mappingHandle;
-    const std::byte* _view;
-    std::size_t _size;
+	void* _fileHandle;
+	void* _mappingHandle;
+	const std::byte* _view;
+	std::size_t _size;
 };
-
 }

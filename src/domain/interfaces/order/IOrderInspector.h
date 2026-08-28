@@ -8,16 +8,15 @@
 #include <vector>
 
 namespace wgrd::domain {
-
 class IOrderInspector {
 public:
-    virtual ~IOrderInspector() = 0;
+	virtual ~IOrderInspector() = 0;
 
-    [[nodiscard]] virtual std::vector<Annotation> Inspect(
-        const LoadOrder& order,
-        std::span<const InstalledMod> installed) const = 0;
+	[[nodiscard]] virtual std::vector<Annotation> Inspect(
+		const LoadOrder& order,
+		std::span<const InstalledMod> installed
+	) const = 0;
 };
 
 inline IOrderInspector::~IOrderInspector() = default;
-
 }

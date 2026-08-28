@@ -15,3 +15,7 @@ set_target_properties(wgrd_app PROPERTIES
     FOLDER ""
 )
 
+if(WGRD_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
+

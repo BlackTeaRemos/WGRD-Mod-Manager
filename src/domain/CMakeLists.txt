@@ -1,4 +1,4 @@
-wgrd_add_module(domain
+﻿wgrd_add_module(domain
     SOURCES
         types/content/ChunkDigest.h
         types/content/ChunkFileNaming.h
@@ -6,6 +6,7 @@ wgrd_add_module(domain
         types/content/ChunkSizes.cpp
         types/content/ChunkSizes.h
         types/content/ChunkSpan.h
+        types/content/InstalledRelease.h
         types/content/ManifestChunk.h
         types/content/ManifestFile.h
         types/content/ModManifest.cpp
@@ -23,6 +24,7 @@ wgrd_add_module(domain
         types/identity/PublisherFingerprint.h
         types/identity/PublisherIdentity.h
         types/identity/RegisteredKey.h
+        types/identity/RevocationCertificate.h
         types/identity/Signature.h
         types/order/Annotation.h
         types/order/InstalledMod.cpp
@@ -31,15 +33,24 @@ wgrd_add_module(domain
         types/order/InstallFolder.h
         types/order/LoadOrder.cpp
         types/order/LoadOrder.h
+        types/order/Profile.h
         types/order/ModIdentifier.cpp
         types/order/ModIdentifier.h
         types/status/CatalogRow.h
         types/status/SeedEntry.h
         types/status/InstallProgress.h
         types/status/PublishedRelease.h
+        types/status/ProfileSummary.h
+        types/content/ModMetadata.h
+        rules/PublisherNameRule.h
+        rules/PublisherNameRule.cpp
+        types/profile/SteamAccount.h
+        types/profile/GameProfileFile.h
         types/status/PublisherState.h
         types/status/RegistryStatus.h
         types/status/UpdateStatus.h
+        types/status/PatcherStatus.h
+        interfaces/services/IPatcherService.h
         interfaces/content/IChunkFetcher.h
         interfaces/content/IChunkSource.h
         interfaces/content/IChunkSetTorrentBuilder.h
@@ -51,14 +62,20 @@ wgrd_add_module(domain
         interfaces/content/IPayloadPathPolicy.h
         interfaces/order/IOrderInspector.h
         interfaces/order/IOrderService.h
+        interfaces/order/IProfileService.h
         interfaces/services/ICatalogService.h
         interfaces/services/ISeedingService.h
         interfaces/services/IInstallService.h
+        interfaces/services/IModRemovalService.h
         interfaces/services/IPublishService.h
         interfaces/services/ISwarmService.h
         interfaces/services/IUpdateService.h
         interfaces/trust/IAnnounceReceiver.h
-        interfaces/trust/IDataProtection.h
+        interfaces/platform/IFilePicker.h
+        interfaces/services/IAnnounceGossip.h
+        interfaces/trust/IAnnounceCatalogue.h
+        types/distribution/AnnounceSummary.h
+        types/status/GossipStatus.h
         interfaces/trust/IKeyRegistry.h
         interfaces/trust/IManifestAuthenticator.h
         interfaces/trust/IManifestSigner.h

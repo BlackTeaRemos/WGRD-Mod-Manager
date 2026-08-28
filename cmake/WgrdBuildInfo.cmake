@@ -3,6 +3,7 @@ set(WGRD_BRANCH "" CACHE STRING "Branch or tag")
 set(WGRD_SOURCE_REPOSITORY "" CACHE STRING "Source repository")
 set(WGRD_RELEASE_REPOSITORY "" CACHE STRING "Release repository")
 set(WGRD_INDEX_REPOSITORY "" CACHE STRING "Signed index repository")
+set(WGRD_PATCHER_REPOSITORY "" CACHE STRING "Patcher repository")
 
 function(wgrd_resolve_build_info)
     set(required
@@ -11,6 +12,7 @@ function(wgrd_resolve_build_info)
         WGRD_SOURCE_REPOSITORY
         WGRD_RELEASE_REPOSITORY
         WGRD_INDEX_REPOSITORY
+        WGRD_PATCHER_REPOSITORY
     )
 
     set(missing "")
@@ -45,3 +47,4 @@ message(STATUS "wgrd build ${PROJECT_VERSION} ${WGRD_COMMIT} ${WGRD_BRANCH}")
 message(STATUS "wgrd source ${WGRD_SOURCE_REPOSITORY}")
 message(STATUS "wgrd release ${WGRD_RELEASE_REPOSITORY}")
 message(STATUS "wgrd index ${WGRD_INDEX_REPOSITORY}")
+message(STATUS "wgrd patcher ${WGRD_PATCHER_REPOSITORY}")

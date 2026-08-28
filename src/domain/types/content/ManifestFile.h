@@ -7,13 +7,11 @@
 #include <vector>
 
 namespace wgrd::domain {
-
 struct ManifestFile {
-    std::string path;
-    std::uint64_t size;
-    std::vector<ManifestChunk> chunks;
+	std::string path;
+	std::uint64_t size;
+	std::vector<ManifestChunk> chunks;
 
-    bool operator==(const ManifestFile& other) const = default;
+	bool operator==(const ManifestFile& other) const = default;
 };
-
 }

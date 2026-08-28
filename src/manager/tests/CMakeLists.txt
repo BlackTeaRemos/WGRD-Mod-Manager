@@ -1,13 +1,21 @@
-wgrd_add_tests(manager
+﻿wgrd_add_tests(manager
     SOURCES
         OrderFileGatewayTests.cpp
         OrderInspectorTests.cpp
         ManifestEnvelopeTests.cpp
         PublishSigningTests.cpp
+        RevocationCertificateTests.cpp
+        BoundedLineReaderTests.cpp
+        GameProfileTests.cpp
+        GameLocatorTests.cpp
+        ModMetadataTests.cpp
+        PatcherTests.cpp
         PayloadPathPolicyTests.cpp
         ManifestPipelineTests.cpp
         UpdateRoundTripTests.cpp
         AnnounceTests.cpp
+        ProfileTests.cpp
         UpdateTests.cpp
         InstallServiceTests.cpp
+        ModRemovalTests.cpp
 )

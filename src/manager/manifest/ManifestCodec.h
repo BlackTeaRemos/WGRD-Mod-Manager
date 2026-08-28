@@ -10,23 +10,23 @@
 #include <vector>
 
 namespace wgrd::manager {
-
 class ManifestCodec final : public domain::IManifestCodec {
 public:
-    explicit ManifestCodec(const domain::IPayloadPathPolicy& pathPolicy);
+	explicit ManifestCodec(const domain::IPayloadPathPolicy& pathPolicy);
 
-    ~ManifestCodec() override;
+	~ManifestCodec() override;
 
-    [[nodiscard]] std::vector<std::uint8_t> Encode(const domain::ModManifest& manifest) const override;
+	[[nodiscard]] std::vector<std::uint8_t> Encode(const domain::ModManifest& manifest) const override;
 
-    [[nodiscard]] std::expected<domain::ModManifest, domain::ManifestDecodeError> Decode(
-        std::span<const std::uint8_t> payload) const override;
+	[[nodiscard]] std::expected<domain::ModManifest, domain::ManifestDecodeError> Decode(
+		std::span<const std::uint8_t> payload
+	) const override;
 
 private:
-    static std::expected<void, domain::ManifestDecodeError> ValidateChunkLayout_(
-        const domain::ManifestFile& file);
+	static std::expected<void, domain::ManifestDecodeError> ValidateChunkLayout_(
+		const domain::ManifestFile& file
+	);
 
-    const domain::IPayloadPathPolicy* _pathPolicy;
+	const domain::IPayloadPathPolicy* _pathPolicy;
 };
-
 }

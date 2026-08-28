@@ -8,24 +8,22 @@
 #include <string>
 
 namespace wgrd::domain {
-
 struct SignedAnnounce {
-    PublisherFingerprint publisher;
-    std::string modName;
-    std::uint64_t version;
-    ChunkDigest manifestDigest;
-    ChunkDigest torrentInfoHash;
-    Signature signature;
+	PublisherFingerprint publisher;
+	std::string modName;
+	std::uint64_t version;
+	ChunkDigest manifestDigest;
+	ChunkDigest torrentInfoHash;
+	Signature signature;
 
-    [[nodiscard]] std::string TorrentName() const {
-        return publisher.ToHex() + "_" + modName;
-    }
+	[[nodiscard]] std::string TorrentName() const {
+		return publisher.ToHex() + "_" + modName;
+	}
 
-    [[nodiscard]] std::string Identifier() const {
-        return publisher.ToHex() + "/" + modName;
-    }
+	[[nodiscard]] std::string Identifier() const {
+		return publisher.ToHex() + "/" + modName;
+	}
 
-    bool operator==(const SignedAnnounce& other) const = default;
+	bool operator==(const SignedAnnounce& other) const = default;
 };
-
 }

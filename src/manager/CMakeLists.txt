@@ -1,4 +1,4 @@
-find_package(unofficial-sodium CONFIG REQUIRED)
+﻿find_package(unofficial-sodium CONFIG REQUIRED)
 find_package(blake3 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
@@ -10,12 +10,28 @@ wgrd_add_module(manager
         inspect/OrderInspector.cpp
         scan/ModFolderScanner.h
         scan/ModFolderScanner.cpp
+        scan/ModMetadataReader.h
+        scan/ModMetadataReader.cpp
         environment/GameLocator.h
         environment/GameLocator.cpp
+        profile/ProfileNameRule.h
+        profile/ProfileNameRule.cpp
+        profile/ProfileCodec.h
+        profile/ProfileCodec.cpp
+        profile/ProfileStore.h
+        profile/ProfileStore.cpp
+        profile/SteamActiveUser.h
+        profile/SteamActiveUser.cpp
+        profile/SteamUserdataLocator.h
+        profile/SteamUserdataLocator.cpp
+        profile/GameProfileScanner.h
+        profile/GameProfileScanner.cpp
+        profile/GameProfileVault.h
+        profile/GameProfileVault.cpp
+        service/ProfileService.h
+        service/ProfileService.cpp
         service/OrderService.h
         service/OrderService.cpp
-        protection/WindowsDataProtection.h
-        protection/WindowsDataProtection.cpp
         trust/SodiumRuntime.h
         trust/SodiumRuntime.cpp
         trust/FingerprintDeriver.h
@@ -26,12 +42,22 @@ wgrd_add_module(manager
         trust/KeyRegistry.cpp
         trust/ManifestAuthenticator.h
         trust/ManifestAuthenticator.cpp
+        trust/RevocationSignable.h
+        trust/RevocationSignable.cpp
+        trust/RevocationCertificateReader.h
+        trust/RevocationCertificateReader.cpp
+        trust/RevocationVerifier.h
+        trust/RevocationVerifier.cpp
+        publish/PassphraseKeyCodec.h
+        publish/PassphraseKeyCodec.cpp
         publish/SigningKeyStore.h
         publish/SigningKeyStore.cpp
         publish/ManifestSigner.h
         publish/ManifestSigner.cpp
         publish/PublisherKeyExporter.h
         publish/PublisherKeyExporter.cpp
+        publish/PublisherRevocationExporter.h
+        publish/PublisherRevocationExporter.cpp
         payload/PayloadPathPolicy.h
         payload/PayloadPathPolicy.cpp
         hash/Blake3Hasher.h
@@ -48,10 +74,17 @@ wgrd_add_module(manager
         announce/AnnounceCodec.cpp
         announce/AnnounceReceiver.h
         announce/AnnounceReceiver.cpp
+        text/ServiceText.h
+        announce/AnnounceStore.h
+        announce/AnnounceStore.cpp
         publish/AnnounceSigner.h
         publish/AnnounceSigner.cpp
         install/ManifestDiffer.h
         install/ManifestDiffer.cpp
+        install/InstalledReleaseStore.h
+        install/InstalledReleaseStore.cpp
+        service/ModRemovalService.h
+        service/ModRemovalService.cpp
         install/StagedChunkSource.h
         install/StagedChunkSource.cpp
         install/ContentInstaller.h
@@ -78,6 +111,20 @@ wgrd_add_module(manager
         update/GitHubContentsSource.cpp
         update/ExecutableSwapper.h
         update/ExecutableSwapper.cpp
+        update/ReleaseLookupText.h
+        update/ReleaseLookupText.cpp
+        update/DownloadHostPolicy.h
+        update/DownloadHostPolicy.cpp
+        io/BoundedLineReader.h
+        io/BoundedLineReader.cpp
+        patcher/PatcherInstaller.h
+        patcher/PatcherInstaller.cpp
+        patcher/PatcherMarker.h
+        patcher/PatcherMarker.cpp
+        patcher/PatcherRuntimeVersion.h
+        patcher/PatcherRuntimeVersion.cpp
+        service/PatcherService.h
+        service/PatcherService.cpp
     DEPS
         domain
 )

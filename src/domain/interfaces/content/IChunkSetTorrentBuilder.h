@@ -5,27 +5,24 @@
 
 #include <cstdint>
 #include <expected>
-#include <span>
 #include <filesystem>
+#include <span>
 
 namespace wgrd::domain {
-
 enum class ChunkSetTorrentError {
-    ManifestEmpty,
-    PayloadUnreadable,
-    EncodingFailed
+	ManifestEmpty, PayloadUnreadable, EncodingFailed
 };
 
 class IChunkSetTorrentBuilder {
 public:
-    virtual ~IChunkSetTorrentBuilder() = 0;
+	virtual ~IChunkSetTorrentBuilder() = 0;
 
-    [[nodiscard]] virtual std::expected<ChunkSetTorrentDescription, ChunkSetTorrentError> Build(
-        const ModManifest& manifest,
-        const std::filesystem::path& modFolder,
-        std::span<const std::uint8_t> sealedManifest) const = 0;
+	[[nodiscard]] virtual std::expected<ChunkSetTorrentDescription, ChunkSetTorrentError> Build(
+		const ModManifest& manifest,
+		const std::filesystem::path& modFolder,
+		std::span<const std::uint8_t> sealedManifest
+	) const = 0;
 };
 
 inline IChunkSetTorrentBuilder::~IChunkSetTorrentBuilder() = default;
-
 }

@@ -11,6 +11,7 @@ inline constexpr std::string_view BRANCH = "@WGRD_BRANCH@";
 inline constexpr std::string_view SOURCE_REPOSITORY = "@WGRD_SOURCE_REPOSITORY@";
 inline constexpr std::string_view RELEASE_REPOSITORY = "@WGRD_RELEASE_REPOSITORY@";
 inline constexpr std::string_view INDEX_REPOSITORY = "@WGRD_INDEX_REPOSITORY@";
+inline constexpr std::string_view PATCHER_REPOSITORY = "@WGRD_PATCHER_REPOSITORY@";
 
 
 }

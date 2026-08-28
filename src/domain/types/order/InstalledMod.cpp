@@ -3,9 +3,7 @@
 #include <algorithm>
 
 namespace wgrd::domain {
-
 bool InstalledMod::SupportsBuild(const GameBuild& build) const {
-    return std::find(builds.begin(), builds.end(), build) != builds.end();
+	return std::ranges::find(builds, build) != builds.end();
 }
-
 }

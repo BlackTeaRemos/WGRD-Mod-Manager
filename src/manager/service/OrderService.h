@@ -5,32 +5,38 @@
 #include "domain/types/order/LoadOrder.h"
 #include "manager/inspect/OrderInspector.h"
 
+#include <functional>
 #include <vector>
 
 namespace wgrd::manager {
-
 class OrderService final : public domain::IOrderService {
 public:
-    explicit OrderService(domain::GameInstallation installation);
-    ~OrderService() override = default;
+	explicit OrderService(domain::GameInstallation installation);
+	~OrderService() override = default;
 
-    [[nodiscard]] const domain::OrderSnapshot& Current() const override;
+	[[nodiscard]] const domain::OrderSnapshot& Current() const override;
 
-    void Refresh() override;
+	void Refresh() override;
 
-    void SetEnabled(const domain::InstallFolder& folder, bool enabled) override;
+	void SetEnabled(const domain::InstallFolder& folder, bool enabled) override;
 
-    void Move(std::size_t fromIndex, std::size_t toIndex) override;
+	void Move(std::size_t fromIndex, std::size_t toIndex) override;
+
+	bool Apply(const domain::LoadOrder& order) override;
+
+	void SetChangeHandler(std::function<void()> handler);
 
 private:
-    void Rebuild_();
-    void Persist_();
-    [[nodiscard]] domain::LoadOrder ComposeOrder_() const;
+	void Announce_() const;
 
-    domain::GameInstallation _installation;
-    std::vector<domain::OrderEntryView> _entries;
-    OrderInspector _inspector;
-    domain::OrderSnapshot _snapshot;
+	void Rebuild_();
+	void Persist_();
+	[[nodiscard]] domain::LoadOrder ComposeOrder_() const;
+
+	domain::GameInstallation _installation;
+	std::vector<domain::OrderEntryView> _entries;
+	OrderInspector _inspector;
+	domain::OrderSnapshot _snapshot;
+	std::function<void()> _onChanged;
 };
-
 }

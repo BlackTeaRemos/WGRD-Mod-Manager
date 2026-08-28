@@ -5,22 +5,19 @@
 #include <string>
 
 namespace wgrd::domain {
-
 enum class AnnotationCategory {
-    FolderAbsent
+	FolderAbsent
 };
 
 enum class AnnotationSeverity {
-    Advisory,
-    Blocking
+	Advisory, Blocking
 };
 
 struct Annotation {
-    InstallFolder folder;
-    AnnotationCategory category;
-    AnnotationSeverity severity;
-    std::string tag;
-    std::string explanation;
+	InstallFolder folder;
+	AnnotationCategory category;
+	AnnotationSeverity severity;
+	std::string tag;
+	std::string explanation;
 };
-
 }

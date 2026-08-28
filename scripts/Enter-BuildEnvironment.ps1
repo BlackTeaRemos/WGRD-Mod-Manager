@@ -6,6 +6,7 @@ $TOOLCHAIN_VISUAL_STUDIO_ROOT = ''
 $TOOLCHAIN_CMAKE_BIN = ''
 $TOOLCHAIN_NINJA_BIN = ''
 $TOOLCHAIN_VCPKG_ROOT = ''
+$TOOLCHAIN_RESHARPER_BIN = ''
 
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $localOverridesPath = Join-Path $scriptDirectory 'ToolchainPaths.local.ps1'
@@ -83,6 +84,7 @@ if (-not $TOOLCHAIN_NINJA_BIN) {
 $cmakeBin = Find-ToolDirectory -ConfiguredDirectory $TOOLCHAIN_CMAKE_BIN -ExecutableName 'cmake'
 $ninjaBin = Find-ToolDirectory -ConfiguredDirectory $TOOLCHAIN_NINJA_BIN -ExecutableName 'ninja'
 $vcpkgRoot = Find-ToolDirectory -ConfiguredDirectory $TOOLCHAIN_VCPKG_ROOT -ExecutableName 'vcpkg'
+$resharperBin = Find-ToolDirectory -ConfiguredDirectory $TOOLCHAIN_RESHARPER_BIN -ExecutableName 'inspectcode'
 
 if (-not $vcpkgRoot -and $env:VCPKG_ROOT) {
     $vcpkgRoot = $env:VCPKG_ROOT
@@ -93,6 +95,7 @@ $resolvedPaths = [ordered]@{
     'cmake'         = $cmakeBin
     'ninja'         = $ninjaBin
     'vcpkg'         = $vcpkgRoot
+    'resharper'     = $resharperBin
 }
 
 Write-Host "Using ToolchainPaths"
@@ -109,7 +112,7 @@ foreach ($environmentLine in $capturedEnvironment) {
     }
 }
 
-foreach ($toolDirectory in @($cmakeBin, $ninjaBin, $vcpkgRoot)) {
+foreach ($toolDirectory in @($cmakeBin, $ninjaBin, $vcpkgRoot, $resharperBin)) {
     if (-not $toolDirectory) {
         continue
     }

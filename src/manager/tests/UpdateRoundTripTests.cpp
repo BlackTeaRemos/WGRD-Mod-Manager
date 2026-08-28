@@ -33,267 +33,265 @@ using wgrd::manager::ManifestDiffer;
 using wgrd::manager::PayloadPathPolicy;
 
 namespace {
-
 constexpr std::size_t CHUNK_LENGTH = 1024;
 
 class FixedSizeChunker final : public IContentChunker {
 public:
-    ~FixedSizeChunker() override = default;
+	~FixedSizeChunker() override = default;
 
-    [[nodiscard]] std::vector<ChunkSpan> Split(std::span<const std::byte> data) const override {
-        std::vector<ChunkSpan> spans;
+	[[nodiscard]] std::vector<ChunkSpan> Split(const std::span<const std::byte> data) const override {
+		std::vector<ChunkSpan> spans;
 
-        std::size_t offset = 0;
-        while (offset < data.size()) {
-            const std::size_t length = std::min(CHUNK_LENGTH, data.size() - offset);
-            spans.push_back(ChunkSpan{offset, length});
-            offset += length;
-        }
+		std::size_t offset = 0;
+		while (offset < data.size()) {
+			const std::size_t length = std::min(CHUNK_LENGTH, data.size() - offset);
+			spans.push_back(ChunkSpan{offset, length});
+			offset += length;
+		}
 
-        return spans;
-    }
+		return spans;
+	}
 };
 
 class PublisherChunkSource final : public IChunkSource {
 public:
-    PublisherChunkSource(const ModManifest& manifest, std::filesystem::path folder)
-        : _folder(std::move(folder)),
-          _served(0) {
+	PublisherChunkSource(const ModManifest& manifest, std::filesystem::path folder)
+		: _folder(std::move(folder))
+		, _served(0) {
+		for (const auto& file : manifest.Files()) {
+			for (const auto& chunk : file.chunks) {
+				_index.try_emplace(chunk.digest.ToHex(), Location{file.path, chunk.offset, chunk.length});
+			}
+		}
+	}
 
-        for (const auto& file : manifest.Files()) {
-            for (const auto& chunk : file.chunks) {
-                _index.try_emplace(chunk.digest.ToHex(), Location{file.path, chunk.offset, chunk.length});
-            }
-        }
-    }
+	~PublisherChunkSource() override = default;
 
-    ~PublisherChunkSource() override = default;
+	[[nodiscard]] std::expected<std::vector<std::byte>, ChunkFetchError> Fetch(
+		const ChunkDigest& digest,
+		const std::uint32_t length
+	) override {
+		const auto match = _index.find(digest.ToHex());
+		if (match == _index.end()) {
+			return std::unexpected(ChunkFetchError::Unavailable);
+		}
 
-    [[nodiscard]] std::expected<std::vector<std::byte>, ChunkFetchError> Fetch(
-        const ChunkDigest& digest,
-        std::uint32_t length) override {
+		if (match->second.length != length) {
+			return std::unexpected(ChunkFetchError::LengthMismatch);
+		}
 
-        const auto match = _index.find(digest.ToHex());
-        if (match == _index.end()) {
-            return std::unexpected(ChunkFetchError::Unavailable);
-        }
+		std::ifstream input(_folder / match->second.path, std::ios::binary);
+		if (!input) {
+			return std::unexpected(ChunkFetchError::Unavailable);
+		}
 
-        if (match->second.length != length) {
-            return std::unexpected(ChunkFetchError::LengthMismatch);
-        }
+		input.seekg(static_cast<std::streamoff>(match->second.offset));
 
-        std::ifstream input(_folder / match->second.path, std::ios::binary);
-        if (!input) {
-            return std::unexpected(ChunkFetchError::Unavailable);
-        }
+		std::vector<std::byte> bytes(length);
+		input.read(reinterpret_cast<char*>(bytes.data()), length);
+		if (input.gcount() != static_cast<std::streamsize>(length)) {
+			return std::unexpected(ChunkFetchError::LengthMismatch);
+		}
 
-        input.seekg(static_cast<std::streamoff>(match->second.offset));
+		++_served;
 
-        std::vector<std::byte> bytes(length);
-        input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(length));
-        if (input.gcount() != static_cast<std::streamsize>(length)) {
-            return std::unexpected(ChunkFetchError::LengthMismatch);
-        }
+		return bytes;
+	}
 
-        ++_served;
-
-        return bytes;
-    }
-
-    [[nodiscard]] std::size_t Served() const {
-        return _served;
-    }
+	[[nodiscard]] std::size_t Served() const {
+		return _served;
+	}
 
 private:
-    struct Location {
-        std::string path;
-        std::uint64_t offset;
-        std::uint32_t length;
-    };
+	struct Location {
+		std::string path;
+		std::uint64_t offset;
+		std::uint32_t length;
+	};
 
-    std::filesystem::path _folder;
-    std::map<std::string, Location> _index;
-    std::size_t _served;
+	std::filesystem::path _folder;
+	std::map<std::string, Location> _index;
+	std::size_t _served;
 };
 
 class TemporaryTree {
 public:
-    explicit TemporaryTree(std::string_view label) {
-        _root = std::filesystem::temp_directory_path() / "wgrd-update" / label;
+	explicit TemporaryTree(const std::string_view label) {
+		_root = std::filesystem::temp_directory_path() / "wgrd-update" / label;
 
-        std::error_code failure;
-        std::filesystem::remove_all(_root, failure);
-        std::filesystem::create_directories(_root, failure);
-    }
+		std::error_code failure;
+		std::filesystem::remove_all(_root, failure);
+		std::filesystem::create_directories(_root, failure);
+	}
 
-    ~TemporaryTree() {
-        std::error_code failure;
-        std::filesystem::remove_all(_root, failure);
-    }
+	~TemporaryTree() {
+		std::error_code failure;
+		std::filesystem::remove_all(_root, failure);
+	}
 
-    [[nodiscard]] const std::filesystem::path& Root() const {
-        return _root;
-    }
+	[[nodiscard]] const std::filesystem::path& Root() const {
+		return _root;
+	}
 
 private:
-    std::filesystem::path _root;
+	std::filesystem::path _root;
 };
 
 void WriteBytes(const std::filesystem::path& target, const std::vector<std::uint8_t>& bytes) {
-    std::error_code failure;
-    std::filesystem::create_directories(target.parent_path(), failure);
+	std::error_code failure;
+	std::filesystem::create_directories(target.parent_path(), failure);
 
-    std::ofstream output(target, std::ios::binary | std::ios::trunc);
-    output.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+	std::ofstream output(target, std::ios::binary | std::ios::trunc);
+	output.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
 }
 
 std::vector<std::uint8_t> ReadBytes(const std::filesystem::path& source) {
-    std::ifstream input(source, std::ios::binary);
-    const std::istreambuf_iterator<char> first(input);
-    const std::istreambuf_iterator<char> last;
-    const std::string raw(first, last);
+	std::ifstream input(source, std::ios::binary);
+	const std::istreambuf_iterator<char> first(input);
+	constexpr std::istreambuf_iterator<char> last;
+	const std::string raw(first, last);
 
-    std::vector<std::uint8_t> bytes;
-    bytes.reserve(raw.size());
-    for (const char character : raw) {
-        bytes.push_back(static_cast<std::uint8_t>(character));
-    }
-    return bytes;
+	std::vector<std::uint8_t> bytes;
+	bytes.reserve(raw.size());
+	for (const char character : raw) {
+		bytes.push_back(static_cast<std::uint8_t>(character));
+	}
+	return bytes;
 }
 
-std::vector<std::uint8_t> MakePattern(std::size_t length, std::uint8_t seed) {
-    std::vector<std::uint8_t> bytes(length);
-    for (std::size_t position = 0; position < length; ++position) {
-        bytes[position] = static_cast<std::uint8_t>((position * 31 + seed) & 0xFF);
-    }
-    return bytes;
+std::vector<std::uint8_t> MakePattern(const std::size_t length, const std::uint8_t seed) {
+	std::vector<std::uint8_t> bytes(length);
+	for (std::size_t position = 0; position < length; ++position) {
+		bytes[position] = static_cast<std::uint8_t>((position * 31 + seed) & 0xFF);
+	}
+	return bytes;
 }
 
 wgrd::domain::PublisherFingerprint MakeFingerprint() {
-    const auto fingerprint = wgrd::domain::PublisherFingerprint::FromHex("0011223344556677");
-    REQUIRE(fingerprint.has_value());
-    return *fingerprint;
+	const auto fingerprint = wgrd::domain::PublisherFingerprint::FromHex("0011223344556677");
+	REQUIRE(fingerprint.has_value());
+	return *fingerprint;
 }
-
 }
 
 TEST_CASE("update reuses held chunks and fetches only what changed") {
-    const TemporaryTree publisher("publisher");
-    const TemporaryTree consumer("consumer");
+	const TemporaryTree publisher("publisher");
+	const TemporaryTree consumer("consumer");
 
-    const FixedSizeChunker chunker;
-    const Blake3Hasher hasher;
-    const PayloadPathPolicy policy;
-    const ManifestBuilder builder(chunker, hasher, policy);
-    const ManifestDiffer differ;
-    const ContentInstaller installer(hasher);
+	const FixedSizeChunker chunker;
+	const Blake3Hasher hasher;
+	const PayloadPathPolicy policy;
+	const ManifestBuilder builder(chunker, hasher, policy);
+	const ManifestDiffer differ;
+	const ContentInstaller installer(hasher);
 
-    const std::vector<std::uint8_t> firstVersion = MakePattern(64 * CHUNK_LENGTH, 3);
-    WriteBytes(publisher.Root() / "packs" / "ZZ_Win.dat", firstVersion);
-    WriteBytes(publisher.Root() / "mod.json", MakePattern(200, 9));
+	const std::vector<std::uint8_t> firstVersion = MakePattern(64 * CHUNK_LENGTH, 3);
+	WriteBytes(publisher.Root() / "packs" / "ZZ_Win.dat", firstVersion);
+	WriteBytes(publisher.Root() / "mod.json", MakePattern(200, 9));
 
-    const auto heldManifest = builder.Build(publisher.Root(), MakeFingerprint(), "angel_maps", 1);
-    REQUIRE(heldManifest.has_value());
-    REQUIRE(heldManifest->Files()[1].chunks.size() == 64);
+	const auto heldManifest = builder.Build(publisher.Root(), MakeFingerprint(), "angel_maps", 1);
+	REQUIRE(heldManifest.has_value());
+	REQUIRE(heldManifest->Files()[1].chunks.size() == 64);
 
-    PublisherChunkSource firstSource(*heldManifest, publisher.Root());
+	PublisherChunkSource firstSource(*heldManifest, publisher.Root());
 
-    const InstallPlan firstPlan = differ.Diff(ModManifest(), *heldManifest);
-    REQUIRE(firstPlan.RemoteChunkCount() == heldManifest->ChunkCount());
-    REQUIRE(firstPlan.HeldBytes() == 0);
+	const InstallPlan firstPlan = differ.Diff(ModManifest(), *heldManifest);
+	REQUIRE(firstPlan.RemoteChunkCount() == heldManifest->ChunkCount());
+	REQUIRE(firstPlan.HeldBytes() == 0);
 
-    const auto firstReport = installer.Apply(firstPlan, consumer.Root(), firstSource);
-    REQUIRE(firstReport.has_value());
-    REQUIRE(firstReport->filesWritten == 2);
+	const auto firstReport = installer.Apply(firstPlan, consumer.Root(), firstSource);
+	REQUIRE(firstReport.has_value());
+	REQUIRE(firstReport->filesWritten == 2);
 
-    REQUIRE(ReadBytes(consumer.Root() / "packs" / "ZZ_Win.dat") == firstVersion);
+	REQUIRE(ReadBytes(consumer.Root() / "packs" / "ZZ_Win.dat") == firstVersion);
 
-    std::vector<std::uint8_t> secondVersion = firstVersion;
-    for (std::size_t position = 0; position < 32; ++position) {
-        secondVersion[10 * CHUNK_LENGTH + position] ^= 0xFF;
-    }
-    WriteBytes(publisher.Root() / "packs" / "ZZ_Win.dat", secondVersion);
+	std::vector<std::uint8_t> secondVersion = firstVersion;
+	for (std::size_t position = 0; position < 32; ++position) {
+		secondVersion[10 * CHUNK_LENGTH + position] ^= 0xFF;
+	}
+	WriteBytes(publisher.Root() / "packs" / "ZZ_Win.dat", secondVersion);
 
-    const auto targetManifest = builder.Build(publisher.Root(), MakeFingerprint(), "angel_maps", 2);
-    REQUIRE(targetManifest.has_value());
+	const auto targetManifest = builder.Build(publisher.Root(), MakeFingerprint(), "angel_maps", 2);
+	REQUIRE(targetManifest.has_value());
 
-    const InstallPlan updatePlan = differ.Diff(*heldManifest, *targetManifest);
+	const InstallPlan updatePlan = differ.Diff(*heldManifest, *targetManifest);
 
-    REQUIRE(updatePlan.RemoteChunkCount() == 1);
-    REQUIRE(updatePlan.RemoteBytes() == CHUNK_LENGTH);
-    REQUIRE(updatePlan.HeldBytes() == targetManifest->TotalBytes() - CHUNK_LENGTH);
+	REQUIRE(updatePlan.RemoteChunkCount() == 1);
+	REQUIRE(updatePlan.RemoteBytes() == CHUNK_LENGTH);
+	REQUIRE(updatePlan.HeldBytes() == targetManifest->TotalBytes() - CHUNK_LENGTH);
 
-    PublisherChunkSource secondSource(*targetManifest, publisher.Root());
-    const auto updateReport = installer.Apply(updatePlan, consumer.Root(), secondSource);
+	PublisherChunkSource secondSource(*targetManifest, publisher.Root());
+	const auto updateReport = installer.Apply(updatePlan, consumer.Root(), secondSource);
 
-    REQUIRE(updateReport.has_value());
-    REQUIRE(secondSource.Served() == 1);
-    REQUIRE(updateReport->remoteBytes == CHUNK_LENGTH);
+	REQUIRE(updateReport.has_value());
+	REQUIRE(secondSource.Served() == 1);
+	REQUIRE(updateReport->remoteBytes == CHUNK_LENGTH);
 
-    REQUIRE(ReadBytes(consumer.Root() / "packs" / "ZZ_Win.dat") == secondVersion);
-    REQUIRE(ReadBytes(consumer.Root() / "mod.json") == MakePattern(200, 9));
+	REQUIRE(ReadBytes(consumer.Root() / "packs" / "ZZ_Win.dat") == secondVersion);
+	REQUIRE(ReadBytes(consumer.Root() / "mod.json") == MakePattern(200, 9));
 }
 
 TEST_CASE("install rejects a chunk whose bytes do not match its digest") {
-    const TemporaryTree publisher("corrupt-publisher");
-    const TemporaryTree consumer("corrupt-consumer");
+	const TemporaryTree publisher("corrupt-publisher");
+	const TemporaryTree consumer("corrupt-consumer");
 
-    const FixedSizeChunker chunker;
-    const Blake3Hasher hasher;
-    const PayloadPathPolicy policy;
-    const ManifestBuilder builder(chunker, hasher, policy);
-    const ManifestDiffer differ;
-    const ContentInstaller installer(hasher);
+	const FixedSizeChunker chunker;
+	const Blake3Hasher hasher;
+	const PayloadPathPolicy policy;
+	const ManifestBuilder builder(chunker, hasher, policy);
+	const ManifestDiffer differ;
+	const ContentInstaller installer(hasher);
 
-    WriteBytes(publisher.Root() / "payload.dat", MakePattern(2 * CHUNK_LENGTH, 5));
+	WriteBytes(publisher.Root() / "payload.dat", MakePattern(2 * CHUNK_LENGTH, 5));
 
-    const auto manifest = builder.Build(publisher.Root(), MakeFingerprint(), "mod", 1);
-    REQUIRE(manifest.has_value());
+	const auto manifest = builder.Build(publisher.Root(), MakeFingerprint(), "mod", 1);
+	REQUIRE(manifest.has_value());
 
-    class LyingChunkSource final : public IChunkSource {
-    public:
-        ~LyingChunkSource() override = default;
+	class LyingChunkSource final : public IChunkSource {
+	public:
+		~LyingChunkSource() override = default;
 
-        [[nodiscard]] std::expected<std::vector<std::byte>, ChunkFetchError> Fetch(
-            const ChunkDigest&,
-            std::uint32_t length) override {
-            return std::vector<std::byte>(length, std::byte{0x00});
-        }
-    };
+		[[nodiscard]] std::expected<std::vector<std::byte>, ChunkFetchError> Fetch(
+			const ChunkDigest&,
+			const std::uint32_t length
+		) override {
+			return std::vector<std::byte>(length, std::byte{0x00});
+		}
+	};
 
-    LyingChunkSource source;
-    const InstallPlan plan = differ.Diff(ModManifest(), *manifest);
+	LyingChunkSource source;
+	const InstallPlan plan = differ.Diff(ModManifest(), *manifest);
 
-    const auto report = installer.Apply(plan, consumer.Root(), source);
+	const auto report = installer.Apply(plan, consumer.Root(), source);
 
-    REQUIRE_FALSE(report.has_value());
-    REQUIRE(report.error() == wgrd::manager::InstallError::RemoteChunkCorrupt);
-    REQUIRE_FALSE(std::filesystem::exists(consumer.Root() / "payload.dat"));
+	REQUIRE_FALSE(report.has_value());
+	REQUIRE(report.error() == wgrd::manager::InstallError::RemoteChunkCorrupt);
+	REQUIRE_FALSE(std::filesystem::exists(consumer.Root() / "payload.dat"));
 }
 
 TEST_CASE("diff reports files the target dropped") {
-    const TemporaryTree publisher("removal");
+	const TemporaryTree publisher("removal");
 
-    const FixedSizeChunker chunker;
-    const Blake3Hasher hasher;
-    const PayloadPathPolicy policy;
-    const ManifestBuilder builder(chunker, hasher, policy);
-    const ManifestDiffer differ;
+	const FixedSizeChunker chunker;
+	const Blake3Hasher hasher;
+	const PayloadPathPolicy policy;
+	const ManifestBuilder builder(chunker, hasher, policy);
+	const ManifestDiffer differ;
 
-    WriteBytes(publisher.Root() / "keep.dat", MakePattern(100, 1));
-    WriteBytes(publisher.Root() / "drop.dat", MakePattern(100, 2));
+	WriteBytes(publisher.Root() / "keep.dat", MakePattern(100, 1));
+	WriteBytes(publisher.Root() / "drop.dat", MakePattern(100, 2));
 
-    const auto held = builder.Build(publisher.Root(), MakeFingerprint(), "mod", 1);
-    REQUIRE(held.has_value());
+	const auto held = builder.Build(publisher.Root(), MakeFingerprint(), "mod", 1);
+	REQUIRE(held.has_value());
 
-    std::error_code failure;
-    std::filesystem::remove(publisher.Root() / "drop.dat", failure);
+	std::error_code failure;
+	std::filesystem::remove(publisher.Root() / "drop.dat", failure);
 
-    const auto target = builder.Build(publisher.Root(), MakeFingerprint(), "mod", 2);
-    REQUIRE(target.has_value());
+	const auto target = builder.Build(publisher.Root(), MakeFingerprint(), "mod", 2);
+	REQUIRE(target.has_value());
 
-    const InstallPlan plan = differ.Diff(*held, *target);
+	const InstallPlan plan = differ.Diff(*held, *target);
 
-    REQUIRE(plan.Removals().size() == 1);
-    REQUIRE(plan.Removals()[0] == "drop.dat");
+	REQUIRE(plan.Removals().size() == 1);
+	REQUIRE(plan.Removals()[0] == "drop.dat");
 }

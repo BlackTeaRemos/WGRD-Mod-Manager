@@ -5,27 +5,27 @@
 #include <string_view>
 
 namespace wgrd::domain {
-
 enum class InstallFolderError {
-    Empty,
-    PathSeparator,
-    CommentMarker,
-    LeadingWhitespace,
-    TrailingWhitespace
+	Empty
+	, PathSeparator
+	, CommentMarker
+	, LeadingWhitespace
+	, TrailingWhitespace
+	, HiddenFolder
+	, RelativeMarker
 };
 
 class InstallFolder {
 public:
-    static std::expected<InstallFolder, InstallFolderError> Parse(std::string_view text);
+	static std::expected<InstallFolder, InstallFolderError> Parse(std::string_view text);
 
-    [[nodiscard]] const std::string& Value() const noexcept;
+	[[nodiscard]] const std::string& Value() const noexcept;
 
-    bool operator==(const InstallFolder& other) const noexcept = default;
+	bool operator==(const InstallFolder& other) const noexcept = default;
 
 private:
-    explicit InstallFolder(std::string value);
+	explicit InstallFolder(std::string value);
 
-    std::string _value;
+	std::string _value;
 };
-
 }

@@ -8,22 +8,19 @@
 #include <vector>
 
 namespace wgrd::domain {
-
 enum class ChunkFetchError {
-    Unavailable,
-    LengthMismatch,
-    Timeout
+	Unavailable, LengthMismatch, Timeout
 };
 
 class IChunkSource {
 public:
-    virtual ~IChunkSource() = 0;
+	virtual ~IChunkSource() = 0;
 
-    [[nodiscard]] virtual std::expected<std::vector<std::byte>, ChunkFetchError> Fetch(
-        const ChunkDigest& digest,
-        std::uint32_t length) = 0;
+	[[nodiscard]] virtual std::expected<std::vector<std::byte>, ChunkFetchError> Fetch(
+		const ChunkDigest& digest,
+		std::uint32_t length
+	) = 0;
 };
 
 inline IChunkSource::~IChunkSource() = default;
-
 }

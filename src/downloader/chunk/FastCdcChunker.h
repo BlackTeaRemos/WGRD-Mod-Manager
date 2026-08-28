@@ -9,21 +9,19 @@
 #include <vector>
 
 namespace wgrd::downloader {
-
 class FastCdcChunker final : public domain::IContentChunker {
 public:
-    explicit FastCdcChunker(domain::ChunkSizes sizes) noexcept;
+	explicit FastCdcChunker(domain::ChunkSizes sizes) noexcept;
 
-    ~FastCdcChunker() override;
+	~FastCdcChunker() override;
 
-    [[nodiscard]] std::size_t NextBoundary(std::span<const std::byte> data) const noexcept;
+	[[nodiscard]] std::size_t NextBoundary(std::span<const std::byte> data) const noexcept;
 
-    [[nodiscard]] std::vector<domain::ChunkSpan> Split(std::span<const std::byte> data) const override;
+	[[nodiscard]] std::vector<domain::ChunkSpan> Split(std::span<const std::byte> data) const override;
 
-    [[nodiscard]] const domain::ChunkSizes& Sizes() const noexcept;
+	[[nodiscard]] const domain::ChunkSizes& Sizes() const noexcept;
 
 private:
-    domain::ChunkSizes _sizes;
+	domain::ChunkSizes _sizes;
 };
-
 }

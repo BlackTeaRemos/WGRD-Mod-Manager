@@ -1,5 +1,8 @@
-wgrd_add_tests(downloader
+﻿wgrd_add_tests(downloader
     SOURCES
+        ControlSwarmTests.cpp
+        GossipTests.cpp
+        PairFetchTests.cpp
         FastCdcChunkerTests.cpp
         SwarmTransferTests.cpp
         VirtualTorrentTests.cpp

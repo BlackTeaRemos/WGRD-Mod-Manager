@@ -10,17 +10,15 @@
 #include "gui/state/ApplicationState.h"
 
 namespace wgrd::gui {
-
 class Screens {
 public:
-    void Draw(const ScreenArea& area, ApplicationState& state, const ApplicationServices& services);
+	void Draw(const ScreenArea& area, ApplicationState& state, const ApplicationServices& services);
 
 private:
-    CatalogScreen _catalog;
-    OrderScreen _order;
-    TransfersScreen _transfers;
-    ProfilesScreen _profiles;
-    PublishScreen _publish;
+	CatalogScreen _catalog;
+	OrderScreen _order;
+	TransfersScreen _transfers;
+	ProfilesScreen _profiles;
+	PublishScreen _publish;
 };
-
 }

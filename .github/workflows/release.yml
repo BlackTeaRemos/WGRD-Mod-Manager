@@ -16,6 +16,7 @@ env:
   TARGET: x64-windows-static
   INDEX_REPOSITORY: ${{ vars.WGRD_INDEX_REPOSITORY }}
   RELEASE_REPOSITORY: ${{ vars.WGRD_RELEASE_REPOSITORY }}
+  PATCHER_REPOSITORY: ${{ vars.WGRD_PATCHER_REPOSITORY }}
 
 jobs:
   build:
@@ -49,11 +50,13 @@ jobs:
           $missing = @()
           if (-not $env:INDEX_REPOSITORY) { $missing += "WGRD_INDEX_REPOSITORY" }
           if (-not $env:RELEASE_REPOSITORY) { $missing += "WGRD_RELEASE_REPOSITORY" }
+          if (-not $env:PATCHER_REPOSITORY) { $missing += "WGRD_PATCHER_REPOSITORY" }
           if ($missing.Count -gt 0) {
             throw "missing repository variables $($missing -join ' ')"
           }
           Write-Host "index $env:INDEX_REPOSITORY"
           Write-Host "release $env:RELEASE_REPOSITORY"
+          Write-Host "patcher $env:PATCHER_REPOSITORY"
 
       - name: Configure and build
         shell: pwsh
@@ -79,7 +82,8 @@ jobs:
             "-DWGRD_BRANCH=${{ github.ref_name }}" `
             "-DWGRD_SOURCE_REPOSITORY=${{ github.repository }}" `
             "-DWGRD_RELEASE_REPOSITORY=${{ env.RELEASE_REPOSITORY }}" `
-            "-DWGRD_INDEX_REPOSITORY=${{ env.INDEX_REPOSITORY }}"
+            "-DWGRD_INDEX_REPOSITORY=${{ env.INDEX_REPOSITORY }}" `
+            "-DWGRD_PATCHER_REPOSITORY=${{ env.PATCHER_REPOSITORY }}"
 
           cmake --build --preset $env:BUILD_PRESET
 

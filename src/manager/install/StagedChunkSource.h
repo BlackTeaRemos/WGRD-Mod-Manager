@@ -9,19 +9,18 @@
 #include <vector>
 
 namespace wgrd::manager {
-
 class StagedChunkSource final : public domain::IChunkSource {
 public:
-    explicit StagedChunkSource(std::filesystem::path chunkFolder);
+	explicit StagedChunkSource(std::filesystem::path chunkFolder);
 
-    ~StagedChunkSource() override;
+	~StagedChunkSource() override;
 
-    [[nodiscard]] std::expected<std::vector<std::byte>, domain::ChunkFetchError> Fetch(
-        const domain::ChunkDigest& digest,
-        std::uint32_t length) override;
+	[[nodiscard]] std::expected<std::vector<std::byte>, domain::ChunkFetchError> Fetch(
+		const domain::ChunkDigest& digest,
+		std::uint32_t length
+	) override;
 
 private:
-    std::filesystem::path _chunkFolder;
+	std::filesystem::path _chunkFolder;
 };
-
 }

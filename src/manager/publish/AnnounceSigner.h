@@ -8,28 +8,24 @@
 #include <cstdint>
 #include <expected>
 #include <span>
-#include <vector>
 
 namespace wgrd::manager {
-
 enum class AnnounceSignError {
-    KeyUnavailable,
-    PublisherMismatch,
-    SigningFailed
+	KeyUnavailable, PublisherMismatch, SigningFailed
 };
 
 class AnnounceSigner {
 public:
-    AnnounceSigner(const domain::ISigningKeyStore& keyStore, const domain::IContentHasher& hasher);
+	AnnounceSigner(const domain::ISigningKeyStore& keyStore, const domain::IContentHasher& hasher);
 
-    [[nodiscard]] std::expected<domain::SignedAnnounce, AnnounceSignError> Announce(
-        const domain::ModManifest& manifest,
-        std::span<const std::uint8_t> sealedManifest,
-        const domain::ChunkDigest& torrentInfoHash) const;
+	[[nodiscard]] std::expected<domain::SignedAnnounce, AnnounceSignError> Announce(
+		const domain::ModManifest& manifest,
+		std::span<const std::uint8_t> sealedManifest,
+		const domain::ChunkDigest& torrentInfoHash
+	) const;
 
 private:
-    const domain::ISigningKeyStore* _keyStore;
-    const domain::IContentHasher* _hasher;
+	const domain::ISigningKeyStore* _keyStore;
+	const domain::IContentHasher* _hasher;
 };
-
 }

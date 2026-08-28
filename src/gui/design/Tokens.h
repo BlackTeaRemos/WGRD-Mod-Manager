@@ -5,14 +5,13 @@
 #include <cstdint>
 
 namespace wgrd::gui::tokens {
-
-constexpr ImU32 FromHex(std::uint32_t rgb, float alpha = 1.0f) {
-    const ImU32 red = (rgb >> 16) & 0xFF;
-    const ImU32 green = (rgb >> 8) & 0xFF;
-    const ImU32 blue = rgb & 0xFF;
-    const ImU32 opacity = static_cast<ImU32>(alpha * 255.0f + 0.5f);
-    return (opacity << IM_COL32_A_SHIFT) | (blue << IM_COL32_B_SHIFT) |
-           (green << IM_COL32_G_SHIFT) | (red << IM_COL32_R_SHIFT);
+constexpr ImU32 FromHex(const std::uint32_t rgb, const float alpha = 1.0f) {
+	const ImU32 red = (rgb >> 16) & 0xFF;
+	const ImU32 green = (rgb >> 8) & 0xFF;
+	const ImU32 blue = rgb & 0xFF;
+	const ImU32 opacity = static_cast<ImU32>(alpha * 255.0f + 0.5f);
+	return (opacity << IM_COL32_A_SHIFT) | (blue << IM_COL32_B_SHIFT) |
+	       (green << IM_COL32_G_SHIFT) | (red << IM_COL32_R_SHIFT);
 }
 
 constexpr ImU32 PAGE_BACKGROUND = FromHex(0x07070A);
@@ -45,6 +44,7 @@ constexpr ImU32 ACCENT_HEADING_SUB = FromHex(0xE07830, 0.55f);
 constexpr ImU32 ACCENT_HEADING_SECTION = FromHex(0xE07830, 0.70f);
 constexpr ImU32 SUCCESS_HEADING = FromHex(0x40B868, 0.50f);
 constexpr ImU32 WARNING_HEADING = FromHex(0xE0C030, 0.80f);
+constexpr ImU32 ADVISORY_SURFACE = FromHex(0xE0C030, 0.10f);
 
 constexpr float FRAME_WIDTH = 1320.0f;
 constexpr float FRAME_MIN_HEIGHT = 770.0f;
@@ -59,5 +59,8 @@ constexpr float HEADING_SUB_HEIGHT = 17.0f;
 constexpr float HEADING_MINOR_HEIGHT = 16.0f;
 
 constexpr float SHADOW_OFFSET = 4.0f;
-
+constexpr float TRANSFER_BAR_HEIGHT = 9.0f;
+constexpr float STRIPE_WIDTH = 2.0f;
+constexpr float STRIPE_PERIOD = 5.0f;
+constexpr ImU32 SHADOW = FromHex(0x000000, 0.90f);
 }

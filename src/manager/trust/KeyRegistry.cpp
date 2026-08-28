@@ -6,64 +6,60 @@
 #include <utility>
 
 namespace wgrd::manager {
-
 KeyRegistry::KeyRegistry()
-    : KeyRegistry(Baseline()) {
-}
+	: KeyRegistry(Baseline()) {}
 
 KeyRegistry::KeyRegistry(std::vector<domain::RegisteredKey> keys)
-    : _keys(std::move(keys)) {
-}
+	: _keys(std::move(keys)) {}
 
 KeyRegistry::~KeyRegistry() = default;
 
 std::vector<domain::RegisteredKey> KeyRegistry::Baseline() {
-    std::vector<domain::RegisteredKey> keys;
-    keys.reserve(domain::registry::KEY_COUNT);
+	std::vector<domain::RegisteredKey> keys;
+	keys.reserve(domain::registry::KEY_COUNT);
 
-    for (const domain::registry::BaselineKey& entry : domain::registry::KEYS) {
-        const auto fingerprint = domain::PublisherFingerprint::FromHex(entry.fingerprint);
-        const auto publicKey = domain::PublicKey::FromBytes(entry.publicKey);
+	for (const domain::registry::BaselineKey& entry : domain::registry::KEYS) {
+		const auto fingerprint = domain::PublisherFingerprint::FromHex(entry.fingerprint);
+		const auto publicKey = domain::PublicKey::FromBytes(entry.publicKey);
 
-        if (!fingerprint.has_value() || !publicKey.has_value()) {
-            continue;
-        }
+		if (!fingerprint.has_value() || !publicKey.has_value()) {
+			continue;
+		}
 
-        keys.push_back(domain::RegisteredKey{
-            *fingerprint,
-            *publicKey,
-            std::string(entry.publisher),
-            entry.revoked
-        });
-    }
+		keys.push_back(domain::RegisteredKey{
+				*fingerprint, *publicKey, std::string(entry.publisher), entry.revoked
+			}
+		);
+	}
 
-    return keys;
+	return keys;
 }
 
 std::optional<domain::RegisteredKey> KeyRegistry::Find(
-    const domain::PublisherFingerprint& fingerprint) const {
+	const domain::PublisherFingerprint& fingerprint
+) const {
+	const auto match = std::ranges::find_if(_keys, [&fingerprint](const domain::RegisteredKey& key) {
+			return key.fingerprint == fingerprint;
+		}
+	);
 
-    const auto match = std::find_if(
-        _keys.begin(),
-        _keys.end(),
-        [&fingerprint](const domain::RegisteredKey& key) {
-            return key.fingerprint == fingerprint;
-        });
+	if (match == _keys.end()) {
+		return std::nullopt;
+	}
 
-    if (match == _keys.end()) {
-        return std::nullopt;
-    }
-
-    return *match;
+	return *match;
 }
 
 bool KeyRegistry::IsUsable(const domain::PublisherFingerprint& fingerprint) const {
-    const auto key = Find(fingerprint);
-    return key.has_value() && !key->revoked;
+	const auto key = Find(fingerprint);
+	return key.has_value() && !key->revoked;
 }
 
 std::size_t KeyRegistry::Count() const {
-    return _keys.size();
+	return _keys.size();
 }
 
+std::size_t KeyRegistry::Reload() {
+	return _keys.size();
+}
 }

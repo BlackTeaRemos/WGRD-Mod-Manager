@@ -8,29 +8,28 @@
 #include <vector>
 
 namespace wgrd::domain {
-
 enum class ManifestDecodeError {
-    Malformed,
-    FieldMissing,
-    FieldWrongType,
-    PublisherRejected,
-    ModNameRejected,
-    PathRejected,
-    TooManyChunks,
-    ChunkLayoutInvalid,
-    NoFiles
+	Malformed
+	, FieldMissing
+	, FieldWrongType
+	, PublisherRejected
+	, ModNameRejected
+	, PathRejected
+	, TooManyChunks
+	, ChunkLayoutInvalid
+	, NoFiles
 };
 
 class IManifestCodec {
 public:
-    virtual ~IManifestCodec() = 0;
+	virtual ~IManifestCodec() = 0;
 
-    [[nodiscard]] virtual std::vector<std::uint8_t> Encode(const ModManifest& manifest) const = 0;
+	[[nodiscard]] virtual std::vector<std::uint8_t> Encode(const ModManifest& manifest) const = 0;
 
-    [[nodiscard]] virtual std::expected<ModManifest, ManifestDecodeError> Decode(
-        std::span<const std::uint8_t> payload) const = 0;
+	[[nodiscard]] virtual std::expected<ModManifest, ManifestDecodeError> Decode(
+		std::span<const std::uint8_t> payload
+	) const = 0;
 };
 
 inline IManifestCodec::~IManifestCodec() = default;
-
 }

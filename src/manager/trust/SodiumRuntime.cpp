@@ -5,20 +5,17 @@
 #include <mutex>
 
 namespace wgrd::manager {
-
 namespace {
-
-std::once_flag INITIALISED;
-bool AVAILABLE = false;
-
+	std::once_flag INITIALISED;
+	bool AVAILABLE = false;
 }
 
 bool SodiumRuntime::Ready() {
-    std::call_once(INITIALISED, []() {
-        AVAILABLE = sodium_init() >= 0;
-    });
+	std::call_once(INITIALISED, []() {
+		               AVAILABLE = sodium_init() >= 0;
+	               }
+	);
 
-    return AVAILABLE;
+	return AVAILABLE;
 }
-
 }

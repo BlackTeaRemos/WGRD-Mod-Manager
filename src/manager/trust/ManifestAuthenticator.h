@@ -8,18 +8,15 @@
 #include <span>
 
 namespace wgrd::manager {
-
 class ManifestAuthenticator final : public domain::IManifestAuthenticator {
 public:
-    explicit ManifestAuthenticator(const domain::IKeyRegistry& registry);
+	explicit ManifestAuthenticator(const domain::IKeyRegistry& registry);
 
-    ~ManifestAuthenticator() override;
+	~ManifestAuthenticator() override;
 
-    [[nodiscard]] std::expected<domain::AuthenticatedManifest, domain::ManifestAuthenticationError>
-    Authenticate(std::span<const std::uint8_t> envelope) const override;
+	[[nodiscard]] std::expected<domain::AuthenticatedManifest, domain::ManifestAuthenticationError> Authenticate(std::span<const std::uint8_t> envelope) const override;
 
 private:
-    const domain::IKeyRegistry* _registry;
+	const domain::IKeyRegistry* _registry;
 };
-
 }
