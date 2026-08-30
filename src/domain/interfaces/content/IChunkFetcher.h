@@ -25,6 +25,9 @@ struct FetchStatus {
 	std::uint64_t inFlightBytes = 0;
 	std::uint64_t wantedBytes = 0;
 	std::uint32_t peers = 0;
+	std::uint64_t hashFailures = 0;
+	std::uint64_t bannedPeers = 0;
+	std::string lastFailure;
 	std::filesystem::path stagingFolder;
 
 	[[nodiscard]] bool Busy() const {

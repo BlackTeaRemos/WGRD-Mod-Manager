@@ -28,6 +28,8 @@
 namespace wgrd::downloader {
 namespace {
 	constexpr std::string_view LOOPBACK_ADDRESS = "127.0.0.1";
+	constexpr std::string_view PEER_SENT_BAD_DATA = "peer sent bad data";
+	constexpr std::string_view PEER_BANNED_BAD_DATA = "peer banned bad data";
 
 	int AlertMask() {
 		constexpr libtorrent::alert_category_t mask =
@@ -543,6 +545,9 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 	_fetching = std::make_unique<libtorrent::torrent_handle>(std::move(handle));
 	_prioritised = false;
 	_settledPolls = 0;
+	_hashFailures = 0;
+	_bannedPeers = 0;
+	_lastTransferFailure.clear();
 
 	DialManualPeers_(*_fetching);
 	DialNeighbours_(*_fetching);
@@ -629,6 +634,9 @@ void TorrentSession::RefreshFetch_() {
 	AccumulateRates_(status.download_payload_rate, status.upload_payload_rate);
 
 	_fetch.peers = static_cast<std::uint32_t>(status.num_peers);
+	_fetch.hashFailures = _hashFailures;
+	_fetch.bannedPeers = _bannedPeers;
+	_fetch.lastFailure = _lastTransferFailure;
 	_fetch.fetchedBytes = static_cast<std::uint64_t>(status.total_wanted_done);
 
 	const std::int64_t received = status.total_payload_download;
@@ -678,6 +686,30 @@ void TorrentSession::Poll() {
 			continue;
 		}
 
+		if (libtorrent::alert_cast<libtorrent::hash_failed_alert>(entry) != nullptr) {
+			++_hashFailures;
+			_lastTransferFailure = std::string(PEER_SENT_BAD_DATA);
+			continue;
+		}
+
+		if (libtorrent::alert_cast<libtorrent::peer_ban_alert>(entry) != nullptr) {
+			++_bannedPeers;
+			_lastTransferFailure = std::string(PEER_BANNED_BAD_DATA);
+			continue;
+		}
+
+		if (const auto* const unreadable =
+				libtorrent::alert_cast<libtorrent::file_error_alert>(entry)) {
+			_lastTransferFailure = unreadable->error.message();
+			continue;
+		}
+
+		if (const auto* const broken =
+				libtorrent::alert_cast<libtorrent::torrent_error_alert>(entry)) {
+			_lastTransferFailure = broken->error.message();
+			continue;
+		}
+
 		if (const auto* const dropped =
 				libtorrent::alert_cast<libtorrent::peer_disconnected_alert>(entry)) {
 			const bool refused =
@@ -693,10 +725,7 @@ void TorrentSession::Poll() {
 
 		if (const auto* const failed =
 				libtorrent::alert_cast<libtorrent::peer_error_alert>(entry)) {
-			const std::string described = failed->message();
-			if (described.find(LOOPBACK_ADDRESS) != std::string::npos) {
-				_lastPeerError = failed->error.message();
-			}
+			_lastPeerError = failed->error.message();
 		}
 	}
 

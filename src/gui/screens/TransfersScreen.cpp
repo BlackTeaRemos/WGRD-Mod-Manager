@@ -356,6 +356,19 @@ void TransfersScreen::DrawDownloads_(
 		10.0f
 	);
 
+	if (progress.hashFailures > 0 || progress.bannedPeers > 0) {
+		design::TextAt(
+			ImVec2(area.origin.x + 600.0f, bodyY + 20.0f),
+			std::format(
+				text::transfers::BAD_DATA_FORMAT,
+				progress.hashFailures,
+				progress.bannedPeers
+			),
+			tokens::FAILURE,
+			10.0f
+		);
+	}
+
 	const std::uint64_t total = progress.heldBytes + progress.remoteBytes;
 
 	design::TransferBar(

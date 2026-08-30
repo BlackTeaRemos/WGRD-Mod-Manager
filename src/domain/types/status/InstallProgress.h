@@ -26,6 +26,8 @@ struct InstallProgress {
 	std::uint64_t inFlightBytes = 0;
 	std::size_t remoteChunks = 0;
 	std::uint32_t peers = 0;
+	std::uint64_t hashFailures = 0;
+	std::uint64_t bannedPeers = 0;
 	std::string message;
 
 	[[nodiscard]] bool Busy() const {

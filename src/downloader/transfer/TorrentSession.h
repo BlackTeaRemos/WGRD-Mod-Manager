@@ -138,7 +138,10 @@ private:
 	std::uint32_t _controlPeers = 0;
 	std::uint32_t _controlState = 0;
 	std::uint64_t _neighbourDials;
+	std::uint64_t _hashFailures = 0;
+	std::uint64_t _bannedPeers = 0;
 	std::string _lastPeerError;
+	std::string _lastTransferFailure;
 	std::vector<SeededTorrent> _seeded;
 	std::vector<domain::SeedEntry> _entries;
 	bool _enabled;

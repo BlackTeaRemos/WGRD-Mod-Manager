@@ -621,6 +621,8 @@ void InstallService::Poll() {
 		_progress.fetchedBytes = status.fetchedBytes;
 		_progress.inFlightBytes = status.inFlightBytes;
 		_progress.peers = status.peers;
+		_progress.hashFailures = status.hashFailures;
+		_progress.bannedPeers = status.bannedPeers;
 	}
 
 	if (status.phase == domain::FetchPhase::Failed) {

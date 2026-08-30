@@ -45,6 +45,7 @@ constexpr std::string_view PEER_DROP_PREFIX = "local peer drop ";
 constexpr std::string_view SEEDING_HEADING_FORMAT = "SEEDING - {} MODS - {} UPLOADED";
 constexpr std::string_view CHUNKS_FORMAT = "{} chunks";
 constexpr std::string_view PEERS_FORMAT = "{} peers";
+constexpr std::string_view BAD_DATA_FORMAT = "{} bad {} banned";
 constexpr std::string_view TO_FETCH_FORMAT = "{} to fetch";
 constexpr std::string_view REUSED_FORMAT = "{} reused";
 constexpr std::string_view MOVED_FORMAT = "{} of {}";
