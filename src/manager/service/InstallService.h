@@ -74,6 +74,8 @@ private:
 
 	void RunVerify_();
 
+	void StartFetch_(const domain::ModManifest& target, const domain::InstallPlan& plan);
+
 	void Publish_(domain::InstallPhase phase, std::string message);
 
 	[[nodiscard]] std::filesystem::path StagingRoot_() const;

@@ -391,9 +391,16 @@ TEST_CASE("install fetches a published mod into the mods folder") {
 		damage.put('\x7F');
 	}
 
+	const std::size_t servedBeforeRepair = fetcher.Served();
+
 	REQUIRE(installService.Verify(published->identifier).has_value());
-	REQUIRE_FALSE(AwaitPhase(installService, InstallPhase::Done, std::chrono::seconds(20)));
-	REQUIRE(installService.Progress().phase == InstallPhase::Failed);
+	REQUIRE(AwaitPhase(installService, InstallPhase::Done, std::chrono::seconds(20)));
+
+	REQUIRE(fetcher.Served() > servedBeforeRepair);
+
+	REQUIRE(ReadAll(installed / "packs" / "ZZ_Win.dat")
+		== ReadAll(publisherMods / "angel_maps" / "packs" / "ZZ_Win.dat")
+	);
 }
 
 TEST_CASE("reinstalling an unchanged mod fetches nothing") {

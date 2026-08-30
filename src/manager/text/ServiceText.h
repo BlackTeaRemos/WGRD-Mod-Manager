@@ -100,6 +100,7 @@ constexpr std::string_view VERIFY_CHECKING = "checking installed chunks";
 constexpr std::string_view VERIFY_FOLDER_MISSING = "mod folder missing";
 constexpr std::string_view VERIFY_DAMAGED = "installed mod damaged";
 constexpr std::string_view VERIFY_INTACT = "installed mod intact";
+constexpr std::string_view VERIFY_REPAIRING = "repairing damaged chunks";
 
 constexpr std::string_view PATCHER_CHECKING = "checking patcher";
 constexpr std::string_view PATCHER_REPOSITORY_UNSET = "patcher repository unset";

@@ -76,13 +76,13 @@ void CatalogService::Seed_(const domain::SignedAnnounce& announce, const domain:
 		return;
 	}
 
-	if (row.revoked) {
+	if (row.revoked || !row.installed) {
 		const bool stopped = _seeding->StopSeeding(row.identifier);
 		(void)stopped;
 		return;
 	}
 
-	if (!row.manifestHeld || !row.installed) {
+	if (!row.manifestHeld) {
 		return;
 	}
 

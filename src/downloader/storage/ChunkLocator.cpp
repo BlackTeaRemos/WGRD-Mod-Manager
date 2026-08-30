@@ -7,9 +7,9 @@
 namespace wgrd::downloader {
 namespace {
 	bool SameLocation(const ChunkLocation& left, const ChunkLocation& right) {
-		return left.file == right.file
-		       && left.offset == right.offset
-		       && left.length == right.length;
+		return left.offset == right.offset
+		       && left.length == right.length
+		       && left.file == right.file;
 	}
 }
 

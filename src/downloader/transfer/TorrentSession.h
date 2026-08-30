@@ -38,6 +38,7 @@ public:
 	static constexpr std::chrono::seconds NEIGHBOUR_DIAL_INTERVAL{5};
 	static constexpr std::chrono::milliseconds STATUS_POLL_INTERVAL{200};
 	static constexpr int COMPLETE_CONFIRMATIONS = 3;
+	static constexpr int LOCAL_ANNOUNCE_SECONDS = 30;
 
 	explicit TorrentSession(
 		std::filesystem::path savePath,

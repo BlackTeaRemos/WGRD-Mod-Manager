@@ -231,43 +231,59 @@ void InstallService::RunVerify_() {
 	std::uint64_t verified = 0;
 	std::size_t damaged = 0;
 
+	std::vector<domain::FilePlan> files;
+	files.reserve(target.Files().size());
+
 	for (const domain::ManifestFile& file : target.Files()) {
 		const auto mapped = MappedFile::Open(modFolder / file.path);
 
-		if (!mapped.has_value() || mapped->Size() != file.size) {
-			++damaged;
-			continue;
-		}
+		const bool readable = mapped.has_value() && mapped->Size() == file.size;
 
-		const std::span<const std::byte> content = mapped->Data();
+		const std::span<const std::byte> content = readable
+		                                           ? mapped->Data()
+		                                           : std::span<const std::byte>();
+
+		std::vector<domain::ChunkPlacement> placements;
+		placements.reserve(file.chunks.size());
 
 		for (const domain::ManifestChunk& chunk : file.chunks) {
-			if (chunk.offset + chunk.length > content.size()) {
+			const bool present = readable
+			                     && chunk.offset + chunk.length <= content.size()
+			                     && _hasher->Hash(content.subspan(chunk.offset, chunk.length)) == chunk.digest;
+
+			if (present) {
+				verified += chunk.length;
+
+				const std::scoped_lock lock(_guard);
+				_progress.fetchedBytes = verified;
+			} else {
 				++damaged;
-				continue;
 			}
 
-			const std::span<const std::byte> slice = content.subspan(chunk.offset, chunk.length);
-
-			if (_hasher->Hash(slice) != chunk.digest) {
-				++damaged;
-				continue;
-			}
-
-			verified += chunk.length;
-
-			const std::scoped_lock lock(_guard);
-			_progress.fetchedBytes = verified;
+			placements.push_back(domain::ChunkPlacement{
+					chunk.digest,
+					chunk.offset,
+					chunk.length,
+					present ? domain::ChunkSourceKind::Held : domain::ChunkSourceKind::Remote,
+					present ? file.path : std::string(),
+					present ? chunk.offset : 0
+				}
+			);
 		}
+
+		files.push_back(domain::FilePlan{file.path, file.size, std::move(placements)});
 	}
 
-	if (damaged > 0) {
-		Publish_(domain::InstallPhase::Failed, std::string(text::VERIFY_DAMAGED));
+	if (damaged == 0) {
+		Publish_(domain::InstallPhase::Done, std::string(text::VERIFY_INTACT));
 		_busy = false;
 		return;
 	}
 
-	Publish_(domain::InstallPhase::Done, std::string(text::VERIFY_INTACT));
+	Publish_(domain::InstallPhase::Planning, std::string(text::VERIFY_REPAIRING));
+
+	StartFetch_(target, domain::InstallPlan(std::move(files), {}));
+	return;
 	_busy = false;
 }
 
@@ -458,7 +474,14 @@ void InstallService::RunPlan_() {
 		}
 	}
 
-	const domain::InstallPlan plan = _differ.Diff(held, target);
+	StartFetch_(target, _differ.Diff(held, target));
+}
+
+void InstallService::StartFetch_(
+	const domain::ModManifest& target,
+	const domain::InstallPlan& plan
+) {
+	const std::filesystem::path modFolder = _modsDirectory / target.ModName();
 
 	std::set<std::string> seen;
 	std::vector<std::string> wanted;

@@ -62,6 +62,11 @@ namespace {
 		settings.set_bool(libtorrent::settings_pack::close_redundant_connections, false);
 		settings.set_bool(libtorrent::settings_pack::allow_multiple_connections_per_ip, true);
 
+		settings.set_int(
+			libtorrent::settings_pack::local_service_announce_interval,
+			TorrentSession::LOCAL_ANNOUNCE_SECONDS
+		);
+
 		return settings;
 	}
 }
@@ -233,7 +238,8 @@ void TorrentSession::DialLoopbackNeighbours_() {
 		}
 	}
 
-	if (_fetching != nullptr && _fetch.peers == 0) {
+	if (_fetching != nullptr) {
+		DialManualPeers_(*_fetching);
 		DialNeighbours_(*_fetching);
 	}
 }
