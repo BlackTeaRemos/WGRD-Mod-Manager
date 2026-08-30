@@ -2,9 +2,11 @@
 
 #include "manager/io/MappedFile.h"
 
+#include <chrono>
 #include <fstream>
 #include <string>
 #include <system_error>
+#include <thread>
 
 namespace wgrd::manager {
 ContentInstaller::ContentInstaller(const domain::IContentHasher& hasher)
@@ -44,6 +46,24 @@ std::expected<std::vector<std::byte>, InstallError> ContentInstaller::ResolveChu
 	}
 
 	return *fetched;
+}
+
+bool ContentInstaller::Swap_(
+	const std::filesystem::path& staged,
+	const std::filesystem::path& target
+) {
+	for (std::size_t attempt = 0; attempt < SWAP_ATTEMPTS; ++attempt) {
+		std::error_code failure;
+		std::filesystem::rename(staged, target, failure);
+
+		if (!failure) {
+			return true;
+		}
+
+		std::this_thread::sleep_for(SWAP_RETRY_DELAY);
+	}
+
+	return false;
 }
 
 bool ContentInstaller::AlreadySeeded_(
@@ -169,8 +189,7 @@ std::expected<InstallReport, InstallError> ContentInstaller::Materialise_(
 		const std::filesystem::path staged =
 				std::filesystem::path(target.string() + std::string(STAGING_SUFFIX));
 
-		std::filesystem::rename(staged, target, failure);
-		if (failure) {
+		if (!Swap_(staged, target)) {
 			return std::unexpected(InstallError::SwapFailed);
 		}
 

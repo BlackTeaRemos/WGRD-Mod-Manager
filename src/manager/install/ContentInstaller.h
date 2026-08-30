@@ -4,6 +4,7 @@
 #include "domain/interfaces/content/IContentHasher.h"
 #include "domain/types/distribution/InstallPlan.h"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -31,6 +32,8 @@ struct InstallReport {
 class ContentInstaller {
 public:
 	static constexpr std::string_view STAGING_SUFFIX = ".wgrdmm-new";
+	static constexpr std::size_t SWAP_ATTEMPTS = 40;
+	static constexpr std::chrono::milliseconds SWAP_RETRY_DELAY{50};
 
 	explicit ContentInstaller(const domain::IContentHasher& hasher);
 
@@ -53,6 +56,11 @@ private:
 		domain::IChunkSource& chunkSource,
 		bool skipPlaced
 	) const;
+
+	[[nodiscard]] static bool Swap_(
+		const std::filesystem::path& staged,
+		const std::filesystem::path& target
+	);
 
 	[[nodiscard]] static bool AlreadySeeded_(
 		const domain::FilePlan& file,

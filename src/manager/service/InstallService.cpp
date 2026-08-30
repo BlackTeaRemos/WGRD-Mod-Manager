@@ -511,6 +511,8 @@ void InstallService::Poll() {
 		return;
 	}
 
+	_fetcher->Cancel();
+
 	Publish_(domain::InstallPhase::Installing, std::string(text::INSTALL_MATERIALISING));
 
 	JoinWorker_();
