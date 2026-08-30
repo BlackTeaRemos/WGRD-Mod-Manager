@@ -37,12 +37,13 @@ jobs:
           $keys = @(Get-ChildItem "registry/keys" -Filter "*.json")
           Write-Host "registry keys $($keys.Count)"
 
-      - name: Route vcpkg cache
-        uses: actions/github-script@v8
+      - name: Restore vcpkg cache
+        uses: actions/cache@v4
         with:
-          script: |
-            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+          path: ${{ github.workspace }}/vcpkg-archives
+          key: vcpkg-${{ runner.os }}-${{ env.TARGET }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-${{ env.TARGET }}-
 
       - name: Check build variables
         shell: pwsh
@@ -61,7 +62,7 @@ jobs:
       - name: Configure and build
         shell: pwsh
         env:
-          VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+          VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg-archives,readwrite"
         run: |
           . ./scripts/Enter-BuildEnvironment.ps1
 
