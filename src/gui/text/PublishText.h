@@ -35,6 +35,7 @@ constexpr std::string_view PREFLIGHT_INCOMPLETE = "PRE-FLIGHT";
 constexpr std::string_view CHECK_KEY = "signing key unlocked";
 constexpr std::string_view CHECK_FOLDER = "mod folder selected";
 constexpr std::string_view SIGN_AND_ANNOUNCE = "SIGN AND ANNOUNCE";
+constexpr std::string_view PROGRESS_FORMAT = "{} of {}";
 
 constexpr std::string_view HISTORY = "PUBLISHED THIS SESSION";
 constexpr std::string_view HISTORY_EMPTY = "nothing published yet";

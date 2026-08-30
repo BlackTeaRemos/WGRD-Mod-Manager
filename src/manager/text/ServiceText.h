@@ -29,10 +29,26 @@ constexpr std::string_view PUBLISHER_NAME_REJECTED = "publisher name rejected";
 constexpr std::string_view KEY_FAILED = "key failed";
 
 constexpr std::string_view MANIFEST_BUILD_FAILED = "manifest build failed";
+constexpr std::string_view MANIFEST_FOLDER_MISSING = "mod folder missing";
+constexpr std::string_view MANIFEST_FOLDER_UNREADABLE = "mod folder unreadable";
+constexpr std::string_view MANIFEST_FOLDER_EMPTY = "mod folder empty";
+constexpr std::string_view MANIFEST_PATH_REJECTED = "payload path rejected";
+constexpr std::string_view MANIFEST_FILE_UNREADABLE = "mod file unreadable";
+constexpr std::string_view MANIFEST_TOO_MANY_CHUNKS = "too many chunks";
+constexpr std::string_view MANIFEST_NAME_REJECTED = "mod name rejected";
 constexpr std::string_view SIGN_FAILED = "sign failed";
 constexpr std::string_view TORRENT_BUILD_FAILED = "torrent build failed";
 constexpr std::string_view ANNOUNCE_FAILED = "announce failed";
 constexpr std::string_view ANNOUNCE_REJECTED = "announce rejected";
+constexpr std::string_view ANNOUNCE_MALFORMED = "announce malformed";
+constexpr std::string_view ANNOUNCE_UNKNOWN_PUBLISHER = "publisher not registered";
+constexpr std::string_view ANNOUNCE_REVOKED_PUBLISHER = "publisher key revoked";
+constexpr std::string_view ANNOUNCE_SIGNATURE_INVALID = "announce signature invalid";
+constexpr std::string_view ANNOUNCE_NOT_NEWER = "version not newer";
+
+constexpr std::string_view PUBLISH_HASHING = "hashing mod files";
+constexpr std::string_view PUBLISH_SIGNING = "signing manifest";
+constexpr std::string_view PUBLISH_ANNOUNCING = "announcing release";
 constexpr std::string_view MANIFEST_STORE_FAILED = "manifest store failed";
 constexpr std::string_view PUBLISHED_PREFIX = "published ";
 

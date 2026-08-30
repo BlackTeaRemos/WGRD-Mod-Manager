@@ -17,6 +17,44 @@
 
 namespace wgrd::manager {
 namespace {
+	std::string_view DescribeBuild(const domain::ManifestBuildError failure) {
+		switch (failure) {
+			case domain::ManifestBuildError::FolderMissing:
+				return text::MANIFEST_FOLDER_MISSING;
+			case domain::ManifestBuildError::FolderUnreadable:
+				return text::MANIFEST_FOLDER_UNREADABLE;
+			case domain::ManifestBuildError::FolderEmpty:
+				return text::MANIFEST_FOLDER_EMPTY;
+			case domain::ManifestBuildError::PathRejected:
+				return text::MANIFEST_PATH_REJECTED;
+			case domain::ManifestBuildError::FileUnreadable:
+				return text::MANIFEST_FILE_UNREADABLE;
+			case domain::ManifestBuildError::TooManyChunks:
+				return text::MANIFEST_TOO_MANY_CHUNKS;
+			case domain::ManifestBuildError::ModNameRejected:
+				return text::MANIFEST_NAME_REJECTED;
+		}
+
+		return text::MANIFEST_BUILD_FAILED;
+	}
+
+	std::string_view DescribeRejection(const domain::AnnounceRejection rejection) {
+		switch (rejection) {
+			case domain::AnnounceRejection::Malformed:
+				return text::ANNOUNCE_MALFORMED;
+			case domain::AnnounceRejection::UnknownPublisher:
+				return text::ANNOUNCE_UNKNOWN_PUBLISHER;
+			case domain::AnnounceRejection::RevokedPublisher:
+				return text::ANNOUNCE_REVOKED_PUBLISHER;
+			case domain::AnnounceRejection::SignatureInvalid:
+				return text::ANNOUNCE_SIGNATURE_INVALID;
+			case domain::AnnounceRejection::NotNewer:
+				return text::ANNOUNCE_NOT_NEWER;
+		}
+
+		return text::ANNOUNCE_REJECTED;
+	}
+
 	constexpr std::string_view REGISTRY_FOLDER = "registry";
 	constexpr std::string_view MANIFEST_FOLDER = "manifests";
 
@@ -101,11 +139,64 @@ PublishService::PublishService(
 	, _candidates()
 	, _history()
 	, _versions()
-	, _message() {
+	, _message()
+	, _progressGuard()
+	, _progress()
+	, _worker()
+	, _busy(false) {
 	RefreshCandidates();
 }
 
-PublishService::~PublishService() = default;
+PublishService::~PublishService() {
+	JoinWorker_();
+}
+
+void PublishService::JoinWorker_() {
+	if (_worker.joinable()) {
+		_worker.join();
+	}
+}
+
+void PublishService::PublishProgress_(const domain::PublishPhase phase, std::string message) {
+	const std::scoped_lock lock(_progressGuard);
+
+	_progress.phase = phase;
+	_progress.message = std::move(message);
+}
+
+domain::PublishProgress PublishService::Progress() const {
+	const std::scoped_lock lock(_progressGuard);
+	return _progress;
+}
+
+void PublishService::StartPublish(const std::string_view folder) {
+	if (_busy.exchange(true)) {
+		return;
+	}
+
+	JoinWorker_();
+
+	{
+		const std::scoped_lock lock(_progressGuard);
+
+		_progress = domain::PublishProgress{};
+		_progress.phase = domain::PublishPhase::Hashing;
+		_progress.modName = std::string(folder);
+		_progress.message = std::string(text::PUBLISH_HASHING);
+	}
+
+	_worker = std::thread([this, name = std::string(folder)]() {
+			const auto published = Publish(name);
+
+			PublishProgress_(
+				published.has_value() ? domain::PublishPhase::Done : domain::PublishPhase::Failed,
+				_message
+			);
+
+			_busy.store(false);
+		}
+	);
+}
 
 std::string PublishService::Today_() {
 	const auto today = std::chrono::floor<std::chrono::days>(std::chrono::system_clock::now());
@@ -344,17 +435,25 @@ std::expected<domain::PublishedRelease, domain::PublishError> PublishService::Pu
 	const std::string identifier = identity->fingerprint.ToHex() + "/" + std::string(folder);
 	const std::uint64_t version = NextVersion_(identity->fingerprint, std::string(folder));
 
-	const auto manifest = _builder.Build(
+	const auto manifest = _builder.BuildObserved(
 		_modsDirectory / folder,
 		identity->fingerprint,
 		folder,
-		version
+		version,
+		[this](const std::uint64_t processed, const std::uint64_t total) {
+			const std::scoped_lock lock(_progressGuard);
+
+			_progress.processedBytes = processed;
+			_progress.totalBytes = total;
+		}
 	);
 
 	if (!manifest.has_value()) {
-		_message = text::MANIFEST_BUILD_FAILED;
+		_message = std::string(DescribeBuild(manifest.error()));
 		return std::unexpected(domain::PublishError::ManifestBuildFailed);
 	}
+
+	PublishProgress_(domain::PublishPhase::Signing, std::string(text::PUBLISH_SIGNING));
 
 	const std::vector<std::uint8_t> payload = _codec.Encode(*manifest);
 
@@ -369,6 +468,8 @@ std::expected<domain::PublishedRelease, domain::PublishError> PublishService::Pu
 		_message = text::TORRENT_BUILD_FAILED;
 		return std::unexpected(domain::PublishError::ManifestBuildFailed);
 	}
+
+	PublishProgress_(domain::PublishPhase::Announcing, std::string(text::PUBLISH_ANNOUNCING));
 
 	const auto announce = _announcer.Announce(*manifest, *sealed, torrent->infoHash);
 	if (!announce.has_value()) {
@@ -386,7 +487,7 @@ std::expected<domain::PublishedRelease, domain::PublishError> PublishService::Pu
 
 	const auto accepted = _receiver->Accept(AnnounceCodec::Encode(*announce));
 	if (!accepted.has_value()) {
-		_message = text::ANNOUNCE_REJECTED;
+		_message = std::string(DescribeRejection(accepted.error()));
 		return std::unexpected(domain::PublishError::AnnounceFailed);
 	}
 

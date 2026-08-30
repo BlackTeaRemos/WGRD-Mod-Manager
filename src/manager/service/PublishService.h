@@ -15,12 +15,15 @@
 #include "manager/publish/ManifestSigner.h"
 #include "manager/publish/SigningKeyStore.h"
 
+#include <atomic>
 #include <cstdint>
 #include <expected>
 #include <filesystem>
 #include <map>
+#include <mutex>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 namespace wgrd::manager {
@@ -65,6 +68,10 @@ public:
 		std::string_view folder
 	) override;
 
+	void StartPublish(std::string_view folder) override;
+
+	[[nodiscard]] domain::PublishProgress Progress() const override;
+
 	[[nodiscard]] const std::vector<domain::PublishedRelease>& History() const override;
 
 	[[nodiscard]] const std::string& LastMessage() const override;
@@ -98,6 +105,10 @@ private:
 
 	[[nodiscard]] static std::string Today_();
 
+	void PublishProgress_(domain::PublishPhase phase, std::string message);
+
+	void JoinWorker_();
+
 	std::filesystem::path _modsDirectory;
 	std::filesystem::path _dataDirectory;
 	const domain::IContentHasher* _hasher;
@@ -119,5 +130,10 @@ private:
 	std::vector<domain::PublishedRelease> _history;
 	std::map<std::string, std::uint64_t> _versions;
 	std::string _message;
+
+	mutable std::mutex _progressGuard;
+	domain::PublishProgress _progress;
+	std::thread _worker;
+	std::atomic<bool> _busy;
 };
 }

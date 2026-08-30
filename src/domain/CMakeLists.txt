@@ -40,6 +40,7 @@
         types/status/SeedEntry.h
         types/status/InstallProgress.h
         types/status/PublishedRelease.h
+        types/status/PublishProgress.h
         types/status/ProfileSummary.h
         types/content/ModMetadata.h
         rules/PublisherNameRule.h

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "domain/types/status/PublishProgress.h"
 #include "domain/types/status/PublishedRelease.h"
 #include "domain/types/status/PublisherState.h"
 
@@ -53,6 +54,10 @@ public:
 	[[nodiscard]] virtual std::expected<PublishedRelease, PublishError> Publish(
 		std::string_view folder
 	) = 0;
+
+	virtual void StartPublish(std::string_view folder) = 0;
+
+	[[nodiscard]] virtual PublishProgress Progress() const = 0;
 
 	[[nodiscard]] virtual const std::vector<PublishedRelease>& History() const = 0;
 

@@ -12,9 +12,10 @@ namespace {
 	constexpr std::size_t MOD_NAME_LIMIT = 64;
 
 	bool IsAcceptableModNameCharacter(const char character) {
+		const bool upper = character >= 'A' && character <= 'Z';
 		const bool lower = character >= 'a' && character <= 'z';
 		const bool digit = character >= '0' && character <= '9';
-		return lower || digit || character == '_' || character == '-';
+		return upper || lower || digit || character == '_' || character == '-';
 	}
 }
 
@@ -105,11 +106,39 @@ std::expected<domain::ManifestFile, domain::ManifestBuildError> ManifestBuilder:
 	};
 }
 
+std::uint64_t ManifestBuilder::TotalBytes_(
+	const std::filesystem::path& modFolder,
+	const std::vector<std::string>& paths
+) {
+	std::uint64_t total = 0;
+
+	for (const std::string& relativePath : paths) {
+		std::error_code failure;
+		const std::uintmax_t size = std::filesystem::file_size(modFolder / relativePath, failure);
+
+		if (!failure) {
+			total += static_cast<std::uint64_t>(size);
+		}
+	}
+
+	return total;
+}
+
 std::expected<domain::ModManifest, domain::ManifestBuildError> ManifestBuilder::Build(
 	const std::filesystem::path& modFolder,
 	const domain::PublisherFingerprint& publisher,
 	const std::string_view modName,
 	const std::uint64_t version
+) const {
+	return BuildObserved(modFolder, publisher, modName, version, {});
+}
+
+std::expected<domain::ModManifest, domain::ManifestBuildError> ManifestBuilder::BuildObserved(
+	const std::filesystem::path& modFolder,
+	const domain::PublisherFingerprint& publisher,
+	const std::string_view modName,
+	const std::uint64_t version,
+	const ProgressSink& progress
 ) const {
 	if (!IsAcceptableModName_(modName)) {
 		return std::unexpected(domain::ManifestBuildError::ModNameRejected);
@@ -132,6 +161,13 @@ std::expected<domain::ModManifest, domain::ManifestBuildError> ManifestBuilder::
 	std::vector<domain::ManifestFile> files;
 	files.reserve(paths->size());
 
+	const std::uint64_t totalBytes = progress ? TotalBytes_(modFolder, *paths) : 0;
+	std::uint64_t processedBytes = 0;
+
+	if (progress) {
+		progress(0, totalBytes);
+	}
+
 	std::size_t chunkTotal = 0;
 
 	for (const std::string& relativePath : *paths) {
@@ -143,6 +179,12 @@ std::expected<domain::ModManifest, domain::ManifestBuildError> ManifestBuilder::
 		chunkTotal += described->chunks.size();
 		if (chunkTotal > domain::limits::MANIFEST_CHUNK_COUNT) {
 			return std::unexpected(domain::ManifestBuildError::TooManyChunks);
+		}
+
+		processedBytes += described->size;
+
+		if (progress) {
+			progress(processedBytes, totalBytes);
 		}
 
 		files.push_back(std::move(*described));

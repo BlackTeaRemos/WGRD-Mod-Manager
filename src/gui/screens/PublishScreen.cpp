@@ -433,22 +433,64 @@ float PublishScreen::DrawSignStep_(
 
 	cursorY += 10.0f;
 
+	const domain::PublishProgress progress = publish->Progress();
+
 	if (keyReady && folderReady) {
 		if (design::Button(
 			ImVec2(left, cursorY),
 			text::publish::SIGN_AND_ANNOUNCE,
 			design::ButtonVariant::Accent,
 			true,
-			12.0f
+			12.0f,
+			!progress.Busy()
 		)) {
 			_notice.clear();
+			_awaitingPublish = true;
 
-			const auto published = publish->Publish(state.PublishFolder());
-			if (published.has_value() && catalog != nullptr) {
-				catalog->Refresh();
-			}
+			publish->StartPublish(state.PublishFolder());
 		}
 		cursorY += 26.0f;
+	}
+
+	if (progress.Busy() || progress.totalBytes > 0) {
+		const float barWidth = fieldWidth;
+
+		const float share = progress.totalBytes == 0
+		                    ? 0.0f
+		                    : static_cast<float>(
+			                    static_cast<double>(progress.processedBytes)
+			                    / static_cast<double>(progress.totalBytes)
+		                    );
+
+		design::TransferBar(
+			ImVec2(left, cursorY),
+			barWidth,
+			tokens::TRANSFER_BAR_HEIGHT,
+			design::TransferSegments{share, 0.0f}
+		);
+
+		cursorY += tokens::TRANSFER_BAR_HEIGHT + 4.0f;
+
+		design::TextAt(
+			ImVec2(left, cursorY),
+			std::format(
+				text::publish::PROGRESS_FORMAT,
+				ScreenToolbar::FormatBytes(progress.processedBytes),
+				ScreenToolbar::FormatBytes(progress.totalBytes)
+			),
+			tokens::SECONDARY_MUTED,
+			10.0f
+		);
+
+		cursorY += 18.0f;
+	}
+
+	if (_awaitingPublish && !progress.Busy() && progress.phase != domain::PublishPhase::Idle) {
+		_awaitingPublish = false;
+
+		if (progress.phase == domain::PublishPhase::Done && catalog != nullptr) {
+			catalog->Refresh();
+		}
 	}
 
 	design::TextAt(

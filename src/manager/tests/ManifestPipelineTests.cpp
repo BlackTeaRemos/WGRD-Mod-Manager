@@ -7,6 +7,7 @@
 #include "manager/publish/PublisherRevocationExporter.h"
 #include "manager/publish/SigningKeyStore.h"
 #include "manager/trust/DirectoryKeyRegistry.h"
+#include "manager/trust/KeyRegistry.h"
 #include "manager/trust/ManifestAuthenticator.h"
 #include "manager/trust/RevocationSignable.h"
 
@@ -33,6 +34,7 @@ using wgrd::manager::Blake3Hasher;
 using wgrd::manager::DirectoryKeyRegistry;
 using wgrd::manager::ManifestAuthenticator;
 using wgrd::manager::ManifestBuilder;
+using wgrd::manager::KeyRegistry;
 using wgrd::manager::ManifestCodec;
 using wgrd::manager::ManifestSigner;
 using wgrd::manager::PayloadPathPolicy;
@@ -149,6 +151,42 @@ TEST_CASE("builder rejects a folder holding a foreign extension") {
 
 	REQUIRE_FALSE(manifest.has_value());
 	REQUIRE(manifest.error() == ManifestBuildError::PathRejected);
+}
+
+TEST_CASE("builder accepts a mixed case mod name") {
+	const TemporaryTree tree("mixedcase");
+	tree.WriteFile("48574/ZZ_Win.dat", 2048, 7);
+
+	const FixedSizeChunker chunker(1024);
+	const Blake3Hasher hasher;
+	const PayloadPathPolicy policy;
+	const ManifestBuilder builder(chunker, hasher, policy);
+
+	const auto fingerprint = wgrd::domain::PublisherFingerprint::FromHex("0011223344556677");
+	REQUIRE(fingerprint.has_value());
+
+	const auto manifest = builder.Build(tree.Root(), *fingerprint, "AICClassic", 1);
+
+	REQUIRE(manifest.has_value());
+	REQUIRE(manifest->Identifier() == "0011223344556677/AICClassic");
+}
+
+TEST_CASE("builder still rejects a mod name holding a space") {
+	const TemporaryTree tree("spacedname");
+	tree.WriteFile("48574/ZZ_Win.dat", 2048, 8);
+
+	const FixedSizeChunker chunker(1024);
+	const Blake3Hasher hasher;
+	const PayloadPathPolicy policy;
+	const ManifestBuilder builder(chunker, hasher, policy);
+
+	const auto fingerprint = wgrd::domain::PublisherFingerprint::FromHex("0011223344556677");
+	REQUIRE(fingerprint.has_value());
+
+	const auto manifest = builder.Build(tree.Root(), *fingerprint, "AIC Classic", 1);
+
+	REQUIRE_FALSE(manifest.has_value());
+	REQUIRE(manifest.error() == ManifestBuildError::ModNameRejected);
 }
 
 TEST_CASE("builder rejects an unusable mod name") {
@@ -287,7 +325,7 @@ TEST_CASE("publish and consume round trip without an index") {
 	REQUIRE(sealed.has_value());
 
 	DirectoryKeyRegistry registry(dataDirectory.Root() / "registry");
-	REQUIRE(registry.Count() == 1);
+	REQUIRE(registry.Count() == KeyRegistry::Baseline().size() + 1);
 	REQUIRE(registry.IsUsable(identity->fingerprint));
 
 	const ManifestAuthenticator authenticator(registry);
@@ -455,7 +493,7 @@ TEST_CASE("directory registry ignores a key whose fingerprint lies") {
 
 	const DirectoryKeyRegistry registry(dataDirectory.Root() / "registry");
 
-	REQUIRE(registry.Count() == 0);
+	REQUIRE(registry.Count() == KeyRegistry::Baseline().size());
 }
 
 TEST_CASE("chunks larger than the manifest envelope round trip") {

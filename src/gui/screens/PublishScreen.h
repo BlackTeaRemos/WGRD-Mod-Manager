@@ -75,5 +75,6 @@ private:
 	std::array<char, PASSPHRASE_CAPACITY> _createPassphrase{};
 	std::array<char, PASSPHRASE_CAPACITY> _unlockPassphrase{};
 	std::string _notice;
+	bool _awaitingPublish = false;
 };
 }

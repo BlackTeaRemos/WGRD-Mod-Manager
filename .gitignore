@@ -5,7 +5,7 @@ CMakeUserPresets.json
 .env
 .env.local
 
-build/
+/build/
 out/
 .cache/
 

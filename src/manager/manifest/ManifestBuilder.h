@@ -9,12 +9,15 @@
 #include <cstdint>
 #include <expected>
 #include <filesystem>
+#include <functional>
 #include <string_view>
 #include <vector>
 
 namespace wgrd::manager {
 class ManifestBuilder final : public domain::IManifestBuilder {
 public:
+	using ProgressSink = std::function<void(std::uint64_t processedBytes, std::uint64_t totalBytes)>;
+
 	ManifestBuilder(
 		const domain::IContentChunker& chunker,
 		const domain::IContentHasher& hasher,
@@ -30,6 +33,14 @@ public:
 		std::uint64_t version
 	) const override;
 
+	[[nodiscard]] std::expected<domain::ModManifest, domain::ManifestBuildError> BuildObserved(
+		const std::filesystem::path& modFolder,
+		const domain::PublisherFingerprint& publisher,
+		std::string_view modName,
+		std::uint64_t version,
+		const ProgressSink& progress
+	) const;
+
 private:
 	[[nodiscard]] std::expected<std::vector<std::string>, domain::ManifestBuildError> CollectPaths_(
 		const std::filesystem::path& modFolder
@@ -39,6 +50,11 @@ private:
 		const std::filesystem::path& modFolder,
 		const std::string& relativePath
 	) const;
+
+	[[nodiscard]] static std::uint64_t TotalBytes_(
+		const std::filesystem::path& modFolder,
+		const std::vector<std::string>& paths
+	);
 
 	static bool IsAcceptableModName_(std::string_view modName);
 
