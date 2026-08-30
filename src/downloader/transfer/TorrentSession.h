@@ -37,6 +37,7 @@ public:
 	static constexpr std::uint16_t NEIGHBOUR_BASE_PORT = 6881;
 	static constexpr std::chrono::seconds NEIGHBOUR_DIAL_INTERVAL{5};
 	static constexpr std::chrono::milliseconds STATUS_POLL_INTERVAL{200};
+	static constexpr int COMPLETE_CONFIRMATIONS = 3;
 
 	explicit TorrentSession(
 		std::filesystem::path savePath,
@@ -88,7 +89,8 @@ public:
 		std::string identifier,
 		const domain::ChunkDigest& infoHash,
 		const std::filesystem::path& stagingFolder,
-		const std::vector<std::string>& wantedFiles
+		const std::vector<std::string>& wantedFiles,
+		const std::vector<domain::ChunkDestination>& destinations
 	) override;
 
 	[[nodiscard]] domain::FetchStatus Fetch() const override;
@@ -139,7 +141,9 @@ private:
 	bool _enabled;
 	std::unique_ptr<libtorrent::torrent_handle> _fetching;
 	std::set<std::string> _wanted;
+	std::vector<std::string> _fetchDestinations;
 	bool _prioritised;
+	int _settledPolls = 0;
 	domain::FetchStatus _fetch;
 };
 }

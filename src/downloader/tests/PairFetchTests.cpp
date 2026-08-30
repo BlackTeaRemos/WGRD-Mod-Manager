@@ -1,4 +1,4 @@
-#include "downloader/torrent/build/VirtualChunkSetTorrent.h"
+﻿#include "downloader/torrent/build/VirtualChunkSetTorrent.h"
 #include "downloader/transfer/TorrentSession.h"
 
 #include "domain/types/content/ChunkFileNaming.h"
@@ -127,7 +127,8 @@ TEST_CASE("probe reaches a running manager", "[.probe]") {
 		"probe/target",
 		*infoHash,
 		root / "incoming",
-		std::vector<std::string>{std::string(ChunkFileNaming::MANIFEST_FILE)}
+		std::vector<std::string>{std::string(ChunkFileNaming::MANIFEST_FILE)},
+		{}
 	);
 
 	REQUIRE(begun.has_value());
@@ -231,7 +232,8 @@ TEST_CASE("one process fetches a chunk set from another copy", "[.pairfetch]") {
 		manifest.Identifier(),
 		*infoHash,
 		staging,
-		wanted
+		wanted,
+		{}
 	);
 
 	REQUIRE(begun.has_value());

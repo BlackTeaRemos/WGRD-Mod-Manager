@@ -477,7 +477,8 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 	std::string identifier,
 	const domain::ChunkDigest& infoHash,
 	const std::filesystem::path& stagingFolder,
-	const std::vector<std::string>& wantedFiles
+	const std::vector<std::string>& wantedFiles,
+	const std::vector<domain::ChunkDestination>& destinations
 ) {
 	if (_fetch.Busy()) {
 		return std::unexpected(domain::FetchError::Busy);
@@ -492,6 +493,18 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 	_wanted.clear();
 	for (const std::string& fileName : wantedFiles) {
 		_wanted.insert(fileName);
+	}
+
+	_fetchDestinations.clear();
+	for (const domain::ChunkDestination& destination : destinations) {
+		_locator.RegisterFile(
+			destination.chunkFileName,
+			destination.file,
+			destination.offset,
+			destination.length
+		);
+
+		_fetchDestinations.push_back(destination.chunkFileName);
 	}
 
 	const std::string magnet = "magnet:?xt=urn:btmh:1220" + infoHash.ToHex();
@@ -520,6 +533,7 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 
 	_fetching = std::make_unique<libtorrent::torrent_handle>(std::move(handle));
 	_prioritised = false;
+	_settledPolls = 0;
 
 	DialManualPeers_(*_fetching);
 	DialNeighbours_(*_fetching);
@@ -543,6 +557,13 @@ void TorrentSession::Cancel() {
 
 	_fetching.reset();
 	_prioritised = false;
+	_settledPolls = 0;
+
+	for (const std::string& chunkFileName : _fetchDestinations) {
+		_locator.ForgetFile(chunkFileName);
+	}
+
+	_fetchDestinations.clear();
 	_wanted.clear();
 
 	if (_fetch.Busy()) {
@@ -616,9 +637,17 @@ void TorrentSession::RefreshFetch_() {
 	                            && _fetch.fetchedBytes >= _fetch.wantedBytes
 	                            && _fetch.inFlightBytes == 0;
 
-	if (_prioritised && (status.is_finished || wantedComplete)) {
-		_fetch.phase = domain::FetchPhase::Complete;
+	if (!_prioritised || !(status.is_finished || wantedComplete)) {
+		_settledPolls = 0;
+		return;
 	}
+
+	if (_settledPolls < COMPLETE_CONFIRMATIONS) {
+		++_settledPolls;
+		return;
+	}
+
+	_fetch.phase = domain::FetchPhase::Complete;
 }
 
 void TorrentSession::AccumulateRates_(const int downloadRate, const int uploadRate) {

@@ -251,8 +251,28 @@ bool InstalledFolderStorage::WriteRange_(
 			continue;
 		}
 
+		const std::string relative = files.file_path(slice.file_index);
+
+		if (const auto location = _locator->Find(relative)) {
+			if (slice.offset + slice.size > static_cast<std::int64_t>(location->length)) {
+				return false;
+			}
+
+			if (!WriteFileRange(
+				location->file,
+				location->offset + static_cast<std::uint64_t>(slice.offset),
+				slice.size,
+				source + consumed
+			)) {
+				return false;
+			}
+
+			consumed += slice.size;
+			continue;
+		}
+
 		if (!WriteFileRange(
-			savePath / files.file_path(slice.file_index),
+			savePath / relative,
 			static_cast<std::uint64_t>(slice.offset),
 			slice.size,
 			source + consumed

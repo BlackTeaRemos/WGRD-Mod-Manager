@@ -1,5 +1,6 @@
 #include "manager/service/InstallService.h"
 
+#include "manager/install/ContentInstaller.h"
 #include "manager/install/StagedChunkSource.h"
 #include "manager/text/ServiceText.h"
 
@@ -12,6 +13,77 @@
 #include <utility>
 
 namespace wgrd::manager {
+namespace {
+	std::filesystem::path StagedPathFor_(
+		const std::filesystem::path& modFolder,
+		const std::string& relativePath
+	) {
+		const std::filesystem::path target = modFolder / relativePath;
+
+		return std::filesystem::path(target.string() + std::string(ContentInstaller::STAGING_SUFFIX));
+	}
+
+	bool SeedFile_(
+		const std::filesystem::path& original,
+		const std::filesystem::path& target,
+		const std::uint64_t size
+	) {
+		std::error_code failure;
+		std::filesystem::create_directories(target.parent_path(), failure);
+
+		if (failure) {
+			return false;
+		}
+
+		std::filesystem::remove(target, failure);
+		failure.clear();
+
+		if (std::filesystem::is_regular_file(original, failure) && !failure) {
+			std::filesystem::copy_file(
+				original,
+				target,
+				std::filesystem::copy_options::overwrite_existing,
+				failure
+			);
+		}
+
+		if (failure || !std::filesystem::exists(target, failure)) {
+			failure.clear();
+
+			std::ofstream created(target, std::ios::binary | std::ios::trunc);
+			if (!created) {
+				return false;
+			}
+		}
+
+		failure.clear();
+		std::filesystem::resize_file(target, static_cast<std::uintmax_t>(size), failure);
+
+		return !failure;
+	}
+
+	std::string_view DescribeInstall(const InstallError failure) {
+		switch (failure) {
+			case InstallError::FolderUnwritable:
+				return text::INSTALL_FOLDER_UNWRITABLE;
+			case InstallError::HeldChunkMissing:
+				return text::INSTALL_HELD_MISSING;
+			case InstallError::HeldChunkUnreadable:
+				return text::INSTALL_HELD_UNREADABLE;
+			case InstallError::RemoteChunkUnavailable:
+				return text::INSTALL_REMOTE_UNAVAILABLE;
+			case InstallError::RemoteChunkCorrupt:
+				return text::INSTALL_REMOTE_CORRUPT;
+			case InstallError::WriteFailed:
+				return text::INSTALL_WRITE_FAILED;
+			case InstallError::SwapFailed:
+				return text::INSTALL_SWAP_FAILED;
+		}
+
+		return text::INSTALL_FAILED;
+	}
+}
+
 InstallService::InstallService(
 	std::filesystem::path modsDirectory,
 	std::filesystem::path dataDirectory,
@@ -158,7 +230,8 @@ void InstallService::BeginManifestFetch_() {
 		announce.Identifier(),
 		announce.torrentInfoHash,
 		StagingRoot_(),
-		wanted
+		wanted,
+		{}
 	);
 
 	if (!begun.has_value()) {
@@ -264,18 +337,32 @@ void InstallService::RunPlan_() {
 
 	std::set<std::string> seen;
 	std::vector<std::string> wanted;
+	std::vector<domain::ChunkDestination> destinations;
 
 	for (const domain::FilePlan& file : plan.Files()) {
+		const std::filesystem::path staged = StagedPathFor_(modFolder, file.path);
+
+		if (!SeedFile_(modFolder / file.path, staged, file.size)) {
+			Publish_(domain::InstallPhase::Failed, std::string(text::INSTALL_FOLDER_UNWRITABLE));
+			_busy = false;
+			return;
+		}
+
 		for (const domain::ChunkPlacement& placement : file.placements) {
 			if (placement.source != domain::ChunkSourceKind::Remote) {
 				continue;
 			}
 
-			if (!seen.insert(placement.digest.ToHex()).second) {
-				continue;
+			const std::string chunkFileName = domain::ChunkFileNaming::FileNameFor(placement.digest);
+
+			if (seen.insert(placement.digest.ToHex()).second) {
+				wanted.push_back(chunkFileName);
 			}
 
-			wanted.push_back(domain::ChunkFileNaming::FileNameFor(placement.digest));
+			destinations.push_back(domain::ChunkDestination{
+					chunkFileName, staged, placement.targetOffset, placement.length
+				}
+			);
 		}
 	}
 
@@ -298,7 +385,8 @@ void InstallService::RunPlan_() {
 		target.Identifier(),
 		_announce.torrentInfoHash,
 		StagingRoot_(),
-		wanted
+		wanted,
+		destinations
 	);
 
 	if (!begun.has_value()) {
@@ -325,10 +413,10 @@ void InstallService::RunInstall_() {
 
 	StagedChunkSource source(staging);
 
-	const auto report = _installer.Apply(plan, modFolder, source);
+	const auto report = _installer.ApplyPlaced(plan, modFolder, source);
 
 	if (!report.has_value()) {
-		Publish_(domain::InstallPhase::Failed, std::string(text::INSTALL_FAILED));
+		Publish_(domain::InstallPhase::Failed, std::string(DescribeInstall(report.error())));
 		_busy = false;
 		return;
 	}

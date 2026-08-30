@@ -43,6 +43,7 @@
         types/status/PublishProgress.h
         types/status/ProfileSummary.h
         types/content/ModMetadata.h
+        types/content/ChunkDestination.h
         rules/PublisherNameRule.h
         rules/PublisherNameRule.cpp
         rules/ModNameRule.h

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "domain/types/content/ChunkDestination.h"
 #include "domain/types/content/ChunkDigest.h"
 
 #include <cstdint>
@@ -46,7 +47,8 @@ public:
 		std::string identifier,
 		const ChunkDigest& infoHash,
 		const std::filesystem::path& stagingFolder,
-		const std::vector<std::string>& wantedFiles
+		const std::vector<std::string>& wantedFiles,
+		const std::vector<ChunkDestination>& destinations
 	) = 0;
 
 	[[nodiscard]] virtual FetchStatus Fetch() const = 0;

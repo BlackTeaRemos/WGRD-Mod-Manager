@@ -231,6 +231,148 @@ TEST_CASE("update reuses held chunks and fetches only what changed") {
 	REQUIRE(ReadBytes(consumer.Root() / "mod.json") == MakePattern(200, 9));
 }
 
+TEST_CASE("seeded update rewrites only the chunks that moved or changed") {
+	const TemporaryTree publisher("seeded-publisher");
+	const TemporaryTree consumer("seeded-consumer");
+
+	const FixedSizeChunker chunker;
+	const Blake3Hasher hasher;
+	const PayloadPathPolicy policy;
+	const ManifestBuilder builder(chunker, hasher, policy);
+	const ManifestDiffer differ;
+	const ContentInstaller installer(hasher);
+
+	const std::vector<std::uint8_t> firstVersion = MakePattern(64 * CHUNK_LENGTH, 3);
+	WriteBytes(publisher.Root() / "packs" / "ZZ_Win.dat", firstVersion);
+	WriteBytes(publisher.Root() / "mod.json", MakePattern(200, 9));
+
+	const auto heldManifest = builder.Build(publisher.Root(), MakeFingerprint(), "angel_maps", 1);
+	REQUIRE(heldManifest.has_value());
+
+	PublisherChunkSource firstSource(*heldManifest, publisher.Root());
+	const auto firstReport = installer.Apply(
+		differ.Diff(ModManifest(), *heldManifest),
+		consumer.Root(),
+		firstSource
+	);
+
+	REQUIRE(firstReport.has_value());
+
+	std::vector<std::uint8_t> secondVersion = firstVersion;
+	for (std::size_t position = 0; position < 32; ++position) {
+		secondVersion[10 * CHUNK_LENGTH + position] ^= 0xFF;
+	}
+
+	WriteBytes(publisher.Root() / "packs" / "ZZ_Win.dat", secondVersion);
+
+	const auto targetManifest = builder.Build(publisher.Root(), MakeFingerprint(), "angel_maps", 2);
+	REQUIRE(targetManifest.has_value());
+
+	const InstallPlan updatePlan = differ.Diff(*heldManifest, *targetManifest);
+
+	for (const wgrd::domain::FilePlan& file : updatePlan.Files()) {
+		const std::filesystem::path target = consumer.Root() / file.path;
+		const std::filesystem::path staged =
+				std::filesystem::path(target.string() + std::string(ContentInstaller::STAGING_SUFFIX));
+
+		std::error_code failure;
+		std::filesystem::create_directories(staged.parent_path(), failure);
+
+		if (std::filesystem::is_regular_file(target, failure)) {
+			std::filesystem::copy_file(
+				target,
+				staged,
+				std::filesystem::copy_options::overwrite_existing,
+				failure
+			);
+		} else {
+			std::ofstream created(staged, std::ios::binary | std::ios::trunc);
+		}
+
+		failure.clear();
+		std::filesystem::resize_file(staged, static_cast<std::uintmax_t>(file.size), failure);
+		REQUIRE_FALSE(failure);
+	}
+
+	PublisherChunkSource secondSource(*targetManifest, publisher.Root());
+	const auto updateReport = installer.ApplyPlaced(updatePlan, consumer.Root(), secondSource);
+
+	REQUIRE(updateReport.has_value());
+	REQUIRE(secondSource.Served() == 0);
+	REQUIRE(updateReport->heldBytes == targetManifest->TotalBytes() - CHUNK_LENGTH);
+}
+
+TEST_CASE("seeded update grows a file and fetches only the appended chunks") {
+	const TemporaryTree publisher("grow-publisher");
+	const TemporaryTree consumer("grow-consumer");
+
+	const FixedSizeChunker chunker;
+	const Blake3Hasher hasher;
+	const PayloadPathPolicy policy;
+	const ManifestBuilder builder(chunker, hasher, policy);
+	const ManifestDiffer differ;
+	const ContentInstaller installer(hasher);
+
+	const std::vector<std::uint8_t> firstVersion = MakePattern(8 * CHUNK_LENGTH, 3);
+	WriteBytes(publisher.Root() / "packs" / "ZZ_Win.dat", firstVersion);
+	WriteBytes(publisher.Root() / "mod.json", MakePattern(200, 9));
+
+	const auto heldManifest = builder.Build(publisher.Root(), MakeFingerprint(), "angel_maps", 1);
+	REQUIRE(heldManifest.has_value());
+
+	PublisherChunkSource firstSource(*heldManifest, publisher.Root());
+	REQUIRE(installer.Apply(
+			differ.Diff(ModManifest(), *heldManifest),
+			consumer.Root(),
+			firstSource
+		).has_value()
+	);
+
+	std::vector<std::uint8_t> grown = firstVersion;
+	const std::vector<std::uint8_t> appended = MakePattern(3 * CHUNK_LENGTH, 77);
+	grown.insert(grown.end(), appended.begin(), appended.end());
+
+	WriteBytes(publisher.Root() / "packs" / "ZZ_Win.dat", grown);
+
+	const auto targetManifest = builder.Build(publisher.Root(), MakeFingerprint(), "angel_maps", 2);
+	REQUIRE(targetManifest.has_value());
+
+	const InstallPlan updatePlan = differ.Diff(*heldManifest, *targetManifest);
+
+	REQUIRE(updatePlan.RemoteChunkCount() == 3);
+
+	for (const wgrd::domain::FilePlan& file : updatePlan.Files()) {
+		const std::filesystem::path target = consumer.Root() / file.path;
+		const std::filesystem::path staged =
+				std::filesystem::path(target.string() + std::string(ContentInstaller::STAGING_SUFFIX));
+
+		std::error_code failure;
+		std::filesystem::create_directories(staged.parent_path(), failure);
+
+		if (std::filesystem::is_regular_file(target, failure)) {
+			std::filesystem::copy_file(
+				target,
+				staged,
+				std::filesystem::copy_options::overwrite_existing,
+				failure
+			);
+		} else {
+			std::ofstream created(staged, std::ios::binary | std::ios::trunc);
+		}
+
+		failure.clear();
+		std::filesystem::resize_file(staged, static_cast<std::uintmax_t>(file.size), failure);
+		REQUIRE_FALSE(failure);
+	}
+
+	PublisherChunkSource secondSource(*targetManifest, publisher.Root());
+	const auto updateReport = installer.Apply(updatePlan, consumer.Root(), secondSource);
+
+	REQUIRE(updateReport.has_value());
+	REQUIRE(secondSource.Served() == 3);
+	REQUIRE(ReadBytes(consumer.Root() / "packs" / "ZZ_Win.dat") == grown);
+}
+
 TEST_CASE("install rejects a chunk whose bytes do not match its digest") {
 	const TemporaryTree publisher("corrupt-publisher");
 	const TemporaryTree consumer("corrupt-consumer");

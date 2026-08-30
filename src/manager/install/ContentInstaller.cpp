@@ -46,10 +46,20 @@ std::expected<std::vector<std::byte>, InstallError> ContentInstaller::ResolveChu
 	return *fetched;
 }
 
+bool ContentInstaller::AlreadySeeded_(
+	const domain::FilePlan& file,
+	const domain::ChunkPlacement& placement
+) {
+	return placement.source == domain::ChunkSourceKind::Held
+	       && placement.heldPath == file.path
+	       && placement.heldOffset == placement.targetOffset;
+}
+
 std::expected<void, InstallError> ContentInstaller::WriteStagedFile_(
 	const domain::FilePlan& file,
 	const std::filesystem::path& modFolder,
 	domain::IChunkSource& chunkSource,
+	const bool skipPlaced,
 	InstallReport& report
 ) const {
 	const std::filesystem::path target = modFolder / file.path;
@@ -58,17 +68,41 @@ std::expected<void, InstallError> ContentInstaller::WriteStagedFile_(
 	std::error_code failure;
 	std::filesystem::create_directories(target.parent_path(), failure);
 
-	std::ofstream output(staged, std::ios::binary | std::ios::trunc);
+	if (!std::filesystem::exists(staged, failure)) {
+		std::ofstream created(staged, std::ios::binary | std::ios::trunc);
+		if (!created) {
+			return std::unexpected(InstallError::FolderUnwritable);
+		}
+	}
+
+	failure.clear();
+	std::filesystem::resize_file(staged, static_cast<std::uintmax_t>(file.size), failure);
+	if (failure) {
+		return std::unexpected(InstallError::FolderUnwritable);
+	}
+
+	std::fstream output(staged, std::ios::binary | std::ios::in | std::ios::out);
 	if (!output) {
 		return std::unexpected(InstallError::FolderUnwritable);
 	}
 
 	for (const domain::ChunkPlacement& placement : file.placements) {
+		if (skipPlaced && placement.source == domain::ChunkSourceKind::Remote) {
+			report.remoteBytes += placement.length;
+			continue;
+		}
+
+		if (skipPlaced && AlreadySeeded_(file, placement)) {
+			report.heldBytes += placement.length;
+			continue;
+		}
+
 		const auto bytes = ResolveChunk_(placement, modFolder, chunkSource);
 		if (!bytes.has_value()) {
 			return std::unexpected(bytes.error());
 		}
 
+		output.seekp(static_cast<std::streamoff>(placement.targetOffset));
 		output.write(
 			reinterpret_cast<const char*>(bytes->data()),
 			static_cast<std::streamsize>(bytes->size())
@@ -98,6 +132,23 @@ std::expected<InstallReport, InstallError> ContentInstaller::Apply(
 	const std::filesystem::path& modFolder,
 	domain::IChunkSource& chunkSource
 ) const {
+	return Materialise_(plan, modFolder, chunkSource, false);
+}
+
+std::expected<InstallReport, InstallError> ContentInstaller::ApplyPlaced(
+	const domain::InstallPlan& plan,
+	const std::filesystem::path& modFolder,
+	domain::IChunkSource& chunkSource
+) const {
+	return Materialise_(plan, modFolder, chunkSource, true);
+}
+
+std::expected<InstallReport, InstallError> ContentInstaller::Materialise_(
+	const domain::InstallPlan& plan,
+	const std::filesystem::path& modFolder,
+	domain::IChunkSource& chunkSource,
+	const bool skipPlaced
+) const {
 	std::error_code failure;
 	std::filesystem::create_directories(modFolder, failure);
 	if (failure) {
@@ -107,7 +158,7 @@ std::expected<InstallReport, InstallError> ContentInstaller::Apply(
 	InstallReport report{0, 0, 0, 0};
 
 	for (const domain::FilePlan& file : plan.Files()) {
-		const auto written = WriteStagedFile_(file, modFolder, chunkSource, report);
+		const auto written = WriteStagedFile_(file, modFolder, chunkSource, skipPlaced, report);
 		if (!written.has_value()) {
 			return std::unexpected(written.error());
 		}

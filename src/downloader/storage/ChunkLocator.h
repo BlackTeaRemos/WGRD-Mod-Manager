@@ -32,6 +32,8 @@ public:
 
 	void Forget(const domain::ModManifest& manifest);
 
+	void ForgetFile(std::string_view fileName);
+
 	[[nodiscard]] std::optional<ChunkLocation> Find(std::string_view chunkFileName) const;
 
 	[[nodiscard]] std::size_t Count() const;

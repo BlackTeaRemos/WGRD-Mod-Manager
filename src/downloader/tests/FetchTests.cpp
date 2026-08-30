@@ -1,4 +1,4 @@
-#include "downloader/torrent/build/ChunkSetTorrentBuilder.h"
+﻿#include "downloader/torrent/build/ChunkSetTorrentBuilder.h"
 #include "downloader/transfer/TorrentSession.h"
 
 #include "domain/types/content/ChunkFileNaming.h"
@@ -135,7 +135,7 @@ TEST_CASE("fetch pulls only the chunks that are missing") {
 
 	const std::filesystem::path staging = leecherTree.Root() / "staging";
 
-	REQUIRE(leecher.Begin("test/angel_maps", torrent->infoHash, staging, wanted).has_value());
+	REQUIRE(leecher.Begin("test/angel_maps", torrent->infoHash, staging, wanted, {}).has_value());
 
 	leecher.ConnectLocalPeer(seeder.ListenPort());
 
@@ -234,7 +234,7 @@ TEST_CASE("fetch pulls the signed manifest before any chunks") {
 
 	const std::vector<std::string> wanted{std::string(ChunkFileNaming::MANIFEST_FILE)};
 
-	REQUIRE(leecher.Begin("test/angel_maps", torrent->infoHash, staging, wanted).has_value());
+	REQUIRE(leecher.Begin("test/angel_maps", torrent->infoHash, staging, wanted, {}).has_value());
 
 	leecher.ConnectLocalPeer(seeder.ListenPort());
 

@@ -407,9 +407,10 @@ void StatusBar::Draw(const ImVec2 origin, const float width, const ApplicationSe
 	}
 
 	const float messageWidth = design::MeasureText(message, 10.0f).x;
+	const float messageX = std::max(cursor, bottomRight.x - messageWidth - 8.0f);
 
 	design::TextAt(
-		ImVec2(bottomRight.x - messageWidth - 8.0f, origin.y + 5.0f),
+		ImVec2(messageX, origin.y + 5.0f),
 		message,
 		services.order == nullptr ? tokens::FAILURE : tokens::SECONDARY_MUTED,
 		10.0f

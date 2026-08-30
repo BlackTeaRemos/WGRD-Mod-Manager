@@ -47,6 +47,12 @@ void ChunkLocator::Forget(const domain::ModManifest& manifest) {
 	}
 }
 
+void ChunkLocator::ForgetFile(const std::string_view fileName) {
+	const std::scoped_lock lock(_guard);
+
+	_locations.erase(std::string(domain::ChunkFileNaming::LeafOf(fileName)));
+}
+
 std::optional<ChunkLocation> ChunkLocator::Find(const std::string_view chunkFileName) const {
 	const std::string leaf(domain::ChunkFileNaming::LeafOf(chunkFileName));
 

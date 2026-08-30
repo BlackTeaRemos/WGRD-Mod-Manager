@@ -12,6 +12,7 @@
 #include "domain/interfaces/content/IChunkFetcher.h"
 #include "domain/interfaces/content/IChunkSetTorrentBuilder.h"
 #include "domain/interfaces/content/IContentChunker.h"
+#include "manager/install/ContentInstaller.h"
 #include "domain/types/content/ChunkFileNaming.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -28,6 +29,7 @@
 
 using wgrd::domain::ChunkDigest;
 using wgrd::domain::ChunkFileNaming;
+using wgrd::manager::ContentInstaller;
 using wgrd::domain::ChunkSpan;
 using wgrd::domain::IChunkFetcher;
 using wgrd::domain::IContentChunker;
@@ -98,7 +100,8 @@ public:
 		std::string identifier,
 		const ChunkDigest&,
 		const std::filesystem::path& stagingFolder,
-		const std::vector<std::string>& wantedFiles
+		const std::vector<std::string>& wantedFiles,
+		const std::vector<wgrd::domain::ChunkDestination>& destinations
 	) override {
 		const std::filesystem::path target = stagingFolder / _manifest.TorrentName();
 
@@ -106,20 +109,24 @@ public:
 		std::filesystem::create_directories(target, failure);
 
 		for (const std::string& wantedName : wantedFiles) {
-			if (wantedName == ChunkFileNaming::MANIFEST_FILE) {
-				std::filesystem::copy_file(
-					_sealedManifestPath,
-					target / wantedName,
-					std::filesystem::copy_options::overwrite_existing,
-					failure
-				);
-				++_served;
+			if (wantedName != ChunkFileNaming::MANIFEST_FILE) {
 				continue;
 			}
 
+			std::filesystem::copy_file(
+				_sealedManifestPath,
+				target / wantedName,
+				std::filesystem::copy_options::overwrite_existing,
+				failure
+			);
+
+			++_served;
+		}
+
+		for (const wgrd::domain::ChunkDestination& destination : destinations) {
 			for (const auto& file : _manifest.Files()) {
 				for (const auto& chunk : file.chunks) {
-					if (ChunkFileNaming::FileNameFor(chunk.digest) != wantedName) {
+					if (ChunkFileNaming::FileNameFor(chunk.digest) != destination.chunkFileName) {
 						continue;
 					}
 
@@ -129,12 +136,14 @@ public:
 					std::vector<char> bytes(chunk.length);
 					input.read(bytes.data(), chunk.length);
 
-					std::ofstream output(
-						target / wantedName,
-						std::ios::binary | std::ios::trunc
+					std::fstream output(
+						destination.file,
+						std::ios::binary | std::ios::in | std::ios::out
 					);
 
+					output.seekp(static_cast<std::streamoff>(destination.offset));
 					output.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+
 					++_served;
 				}
 			}
@@ -327,6 +336,44 @@ TEST_CASE("install fetches a published mod into the mods folder") {
 	REQUIRE_FALSE(std::filesystem::exists(
 			data.Root() / InstallService::STAGING_FOLDER / manifest->TorrentName())
 	);
+
+	std::size_t chunkFiles = 0;
+	std::size_t leftoverStaging = 0;
+
+	std::error_code walking;
+	std::filesystem::recursive_directory_iterator walker(data.Root(), walking);
+	const std::filesystem::recursive_directory_iterator end;
+
+	for (; walker != end; walker.increment(walking)) {
+		if (walking) {
+			break;
+		}
+
+		if (walker->path().extension() == ChunkFileNaming::SUFFIX) {
+			++chunkFiles;
+		}
+	}
+
+	std::filesystem::recursive_directory_iterator installedWalker(consumerMods, walking);
+
+	for (; installedWalker != end; installedWalker.increment(walking)) {
+		if (walking) {
+			break;
+		}
+
+		const std::string leaf = installedWalker->path().filename().string();
+
+		if (leaf.ends_with(ContentInstaller::STAGING_SUFFIX)) {
+			++leftoverStaging;
+		}
+
+		if (installedWalker->path().extension() == ChunkFileNaming::SUFFIX) {
+			++chunkFiles;
+		}
+	}
+
+	REQUIRE(chunkFiles == 0);
+	REQUIRE(leftoverStaging == 0);
 }
 
 TEST_CASE("reinstalling an unchanged mod fetches nothing") {
