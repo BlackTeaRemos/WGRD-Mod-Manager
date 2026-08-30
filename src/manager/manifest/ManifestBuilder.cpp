@@ -1,5 +1,6 @@
 #include "manager/manifest/ManifestBuilder.h"
 
+#include "domain/rules/ModNameRule.h"
 #include "domain/types/distribution/TransportLimits.h"
 #include "manager/io/MappedFile.h"
 
@@ -8,17 +9,6 @@
 #include <utility>
 
 namespace wgrd::manager {
-namespace {
-	constexpr std::size_t MOD_NAME_LIMIT = 64;
-
-	bool IsAcceptableModNameCharacter(const char character) {
-		const bool upper = character >= 'A' && character <= 'Z';
-		const bool lower = character >= 'a' && character <= 'z';
-		const bool digit = character >= '0' && character <= '9';
-		return upper || lower || digit || character == '_' || character == '-';
-	}
-}
-
 ManifestBuilder::ManifestBuilder(
 	const domain::IContentChunker& chunker,
 	const domain::IContentHasher& hasher,
@@ -30,12 +20,8 @@ ManifestBuilder::ManifestBuilder(
 
 ManifestBuilder::~ManifestBuilder() = default;
 
-bool ManifestBuilder::IsAcceptableModName_(std::string_view modName) {
-	if (modName.empty() || modName.size() > MOD_NAME_LIMIT) {
-		return false;
-	}
-
-	return std::ranges::all_of(modName, IsAcceptableModNameCharacter);
+bool ManifestBuilder::IsAcceptableModName_(const std::string_view modName) {
+	return domain::ModNameRule::IsAcceptable(modName);
 }
 
 std::expected<std::vector<std::string>, domain::ManifestBuildError> ManifestBuilder::CollectPaths_(

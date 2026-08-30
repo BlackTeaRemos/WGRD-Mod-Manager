@@ -1,25 +1,13 @@
 #include "manager/announce/AnnounceCodec.h"
 
+#include "domain/rules/ModNameRule.h"
+
 #include <algorithm>
 #include <string>
 
 namespace wgrd::manager {
-namespace {
-	constexpr std::size_t MOD_NAME_LIMIT = 64;
-
-	bool IsAcceptableModNameCharacter(const char character) {
-		const bool lower = character >= 'a' && character <= 'z';
-		const bool digit = character >= '0' && character <= '9';
-		return lower || digit || character == '_' || character == '-';
-	}
-}
-
-bool AnnounceCodec::IsAcceptableModName_(std::string_view modName) {
-	if (modName.empty() || modName.size() > MOD_NAME_LIMIT) {
-		return false;
-	}
-
-	return std::ranges::all_of(modName, IsAcceptableModNameCharacter);
+bool AnnounceCodec::IsAcceptableModName_(const std::string_view modName) {
+	return domain::ModNameRule::IsAcceptable(modName);
 }
 
 void AnnounceCodec::WriteLittleEndian32_(

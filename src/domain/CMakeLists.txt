@@ -45,6 +45,8 @@
         types/content/ModMetadata.h
         rules/PublisherNameRule.h
         rules/PublisherNameRule.cpp
+        rules/ModNameRule.h
+        rules/ModNameRule.cpp
         types/profile/SteamAccount.h
         types/profile/GameProfileFile.h
         types/status/PublisherState.h

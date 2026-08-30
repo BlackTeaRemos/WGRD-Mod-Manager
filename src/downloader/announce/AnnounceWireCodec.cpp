@@ -1,18 +1,11 @@
 #include "downloader/announce/AnnounceWireCodec.h"
 
+#include "domain/rules/ModNameRule.h"
+
 #include <algorithm>
 #include <string>
 
 namespace wgrd::downloader {
-namespace {
-	bool IsAcceptableModNameCharacter(const char character) {
-		const bool upper = character >= 'A' && character <= 'Z';
-		const bool lower = character >= 'a' && character <= 'z';
-		const bool digit = character >= '0' && character <= '9';
-		return upper || lower || digit || character == '.' || character == '_' || character == '-';
-	}
-}
-
 void AnnounceWireCodec::AppendModName_(std::vector<std::uint8_t>& target, const std::string& modName) {
 	const std::size_t copied = std::min(modName.size(), MOD_NAME_BYTES);
 
@@ -179,11 +172,7 @@ std::optional<std::vector<domain::AnnounceSummary>> AnnounceWireCodec::DecodeEnt
 			modName.push_back(static_cast<char>(value));
 		}
 
-		if (modName.empty()) {
-			return std::nullopt;
-		}
-
-		if (!std::ranges::all_of(modName, IsAcceptableModNameCharacter)) {
+		if (!domain::ModNameRule::IsAcceptable(modName)) {
 			return std::nullopt;
 		}
 

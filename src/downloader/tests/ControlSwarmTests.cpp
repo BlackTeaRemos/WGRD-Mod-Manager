@@ -71,7 +71,7 @@ TEST_CASE("control swarm torrent is deterministic") {
 
 TEST_CASE("offer round trips") {
 	const std::vector<AnnounceSummary> summaries = {
-		MakeSummary("angel_maps", 3), MakeSummary("other.mod-1", 900000)
+		MakeSummary("angel_maps", 3), MakeSummary("Other_mod-1", 900000)
 	};
 
 	const std::vector<std::uint8_t> message = AnnounceWireCodec::EncodeOffer(summaries);
