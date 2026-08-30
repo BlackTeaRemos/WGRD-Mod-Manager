@@ -90,7 +90,8 @@ public:
 		const domain::ChunkDigest& infoHash,
 		const std::filesystem::path& stagingFolder,
 		const std::vector<std::string>& wantedFiles,
-		const std::vector<domain::ChunkDestination>& destinations
+		const std::vector<domain::ChunkDestination>& destinations,
+		bool verifyExisting
 	) override;
 
 	[[nodiscard]] domain::FetchStatus Fetch() const override;

@@ -50,4 +50,5 @@ constexpr std::string_view MANIFEST_ABSENT = "manifest not held yet";
 
 constexpr std::string_view ACTION_INSTALL = "INSTALL";
 constexpr std::string_view ACTION_REINSTALL = "REINSTALL";
+constexpr std::string_view ACTION_VERIFY = "VERIFY";
 }

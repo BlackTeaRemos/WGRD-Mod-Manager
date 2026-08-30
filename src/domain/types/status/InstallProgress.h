@@ -10,6 +10,7 @@ enum class InstallPhase {
 	, Planning
 	, Fetching
 	, Installing
+	, Verifying
 	, Done
 	, Failed
 };
@@ -30,7 +31,8 @@ struct InstallProgress {
 	[[nodiscard]] bool Busy() const {
 		return phase == InstallPhase::Planning
 		       || phase == InstallPhase::Fetching
-		       || phase == InstallPhase::Installing;
+		       || phase == InstallPhase::Installing
+		       || phase == InstallPhase::Verifying;
 	}
 };
 }

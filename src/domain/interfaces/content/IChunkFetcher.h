@@ -48,7 +48,8 @@ public:
 		const ChunkDigest& infoHash,
 		const std::filesystem::path& stagingFolder,
 		const std::vector<std::string>& wantedFiles,
-		const std::vector<ChunkDestination>& destinations
+		const std::vector<ChunkDestination>& destinations,
+		bool verifyExisting
 	) = 0;
 
 	[[nodiscard]] virtual FetchStatus Fetch() const = 0;

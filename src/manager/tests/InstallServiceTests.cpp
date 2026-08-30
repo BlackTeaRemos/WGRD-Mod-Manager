@@ -101,7 +101,8 @@ public:
 		const ChunkDigest&,
 		const std::filesystem::path& stagingFolder,
 		const std::vector<std::string>& wantedFiles,
-		const std::vector<wgrd::domain::ChunkDestination>& destinations
+		const std::vector<wgrd::domain::ChunkDestination>& destinations,
+		bool
 	) override {
 		const std::filesystem::path target = stagingFolder / _manifest.TorrentName();
 
@@ -374,6 +375,25 @@ TEST_CASE("install fetches a published mod into the mods folder") {
 
 	REQUIRE(chunkFiles == 0);
 	REQUIRE(leftoverStaging == 0);
+
+	REQUIRE(installService.Verify(published->identifier).has_value());
+	REQUIRE(AwaitPhase(installService, InstallPhase::Done, std::chrono::seconds(20)));
+
+	{
+		std::fstream damage(
+			installed / "packs" / "ZZ_Win.dat",
+			std::ios::binary | std::ios::in | std::ios::out
+		);
+
+		REQUIRE(damage.good());
+
+		damage.seekp(64);
+		damage.put('\x7F');
+	}
+
+	REQUIRE(installService.Verify(published->identifier).has_value());
+	REQUIRE_FALSE(AwaitPhase(installService, InstallPhase::Done, std::chrono::seconds(20)));
+	REQUIRE(installService.Progress().phase == InstallPhase::Failed);
 }
 
 TEST_CASE("reinstalling an unchanged mod fetches nothing") {

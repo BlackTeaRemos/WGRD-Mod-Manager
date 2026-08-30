@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace wgrd::downloader {
 struct ChunkLocation {
@@ -36,10 +37,17 @@ public:
 
 	[[nodiscard]] std::optional<ChunkLocation> Find(std::string_view chunkFileName) const;
 
+	[[nodiscard]] std::vector<ChunkLocation> FindAll(std::string_view chunkFileName) const;
+
 	[[nodiscard]] std::size_t Count() const;
+
+	void SetVerifyExisting(bool verify);
+
+	[[nodiscard]] bool VerifyExisting() const;
 
 private:
 	mutable std::mutex _guard;
-	std::map<std::string, ChunkLocation> _locations;
+	bool _verifyExisting = false;
+	std::map<std::string, std::vector<ChunkLocation>> _locations;
 };
 }

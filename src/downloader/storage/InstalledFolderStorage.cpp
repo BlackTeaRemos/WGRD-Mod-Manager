@@ -253,18 +253,22 @@ bool InstalledFolderStorage::WriteRange_(
 
 		const std::string relative = files.file_path(slice.file_index);
 
-		if (const auto location = _locator->Find(relative)) {
-			if (slice.offset + slice.size > static_cast<std::int64_t>(location->length)) {
-				return false;
-			}
+		const std::vector<ChunkLocation> locations = _locator->FindAll(relative);
 
-			if (!WriteFileRange(
-				location->file,
-				location->offset + static_cast<std::uint64_t>(slice.offset),
-				slice.size,
-				source + consumed
-			)) {
-				return false;
+		if (!locations.empty()) {
+			for (const ChunkLocation& location : locations) {
+				if (slice.offset + slice.size > static_cast<std::int64_t>(location.length)) {
+					return false;
+				}
+
+				if (!WriteFileRange(
+					location.file,
+					location.offset + static_cast<std::uint64_t>(slice.offset),
+					slice.size,
+					source + consumed
+				)) {
+					return false;
+				}
 			}
 
 			consumed += slice.size;
@@ -507,7 +511,7 @@ void InstalledFolderStorage::async_check_files(
 		}
 	}
 
-	if (writable) {
+	if (writable && !_locator->VerifyExisting()) {
 		handler(libtorrent::status_t{}, libtorrent::storage_error());
 		return;
 	}

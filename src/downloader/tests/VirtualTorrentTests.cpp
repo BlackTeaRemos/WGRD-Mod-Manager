@@ -195,6 +195,28 @@ TEST_CASE("seeder serves chunks straight from the installed mod folder") {
 	locator.Register(manifest, modFolder);
 	REQUIRE(locator.Count() == lengths.size());
 
+	SECTION("locator keeps every placement of a repeated chunk") {
+		wgrd::downloader::ChunkLocator repeated;
+
+		const std::string name = "repeated.chunk";
+
+		repeated.RegisterFile(name, modFolder / "a.dat", 0, 64);
+		repeated.RegisterFile(name, modFolder / "a.dat", 4096, 64);
+		repeated.RegisterFile(name, modFolder / "b.dat", 128, 64);
+		repeated.RegisterFile(name, modFolder / "a.dat", 0, 64);
+
+		REQUIRE(repeated.Count() == 1);
+
+		const auto placements = repeated.FindAll(name);
+
+		REQUIRE(placements.size() == 3);
+		REQUIRE(repeated.Find(name).has_value());
+
+		repeated.ForgetFile(name);
+
+		REQUIRE(repeated.FindAll(name).empty());
+	}
+
 	const auto torrent = VirtualChunkSetTorrent::Create(
 		manifest,
 		modFolder,

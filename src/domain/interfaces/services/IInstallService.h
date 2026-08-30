@@ -23,6 +23,10 @@ public:
 		std::string_view identifier
 	) = 0;
 
+	[[nodiscard]] virtual std::expected<void, InstallStartError> Verify(
+		std::string_view identifier
+	) = 0;
+
 	[[nodiscard]] virtual InstallProgress Progress() const = 0;
 
 	[[nodiscard]] virtual std::uint64_t CompletedInstalls() const = 0;

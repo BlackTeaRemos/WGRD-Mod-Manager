@@ -128,7 +128,8 @@ TEST_CASE("probe reaches a running manager", "[.probe]") {
 		*infoHash,
 		root / "incoming",
 		std::vector<std::string>{std::string(ChunkFileNaming::MANIFEST_FILE)},
-		{}
+		{},
+		false
 	);
 
 	REQUIRE(begun.has_value());
@@ -233,7 +234,8 @@ TEST_CASE("one process fetches a chunk set from another copy", "[.pairfetch]") {
 		*infoHash,
 		staging,
 		wanted,
-		{}
+		{},
+		false
 	);
 
 	REQUIRE(begun.has_value());

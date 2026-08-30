@@ -478,7 +478,8 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 	const domain::ChunkDigest& infoHash,
 	const std::filesystem::path& stagingFolder,
 	const std::vector<std::string>& wantedFiles,
-	const std::vector<domain::ChunkDestination>& destinations
+	const std::vector<domain::ChunkDestination>& destinations,
+	const bool verifyExisting
 ) {
 	if (_fetch.Busy()) {
 		return std::unexpected(domain::FetchError::Busy);
@@ -506,6 +507,8 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 
 		_fetchDestinations.push_back(destination.chunkFileName);
 	}
+
+	_locator.SetVerifyExisting(verifyExisting);
 
 	const std::string magnet = "magnet:?xt=urn:btmh:1220" + infoHash.ToHex();
 

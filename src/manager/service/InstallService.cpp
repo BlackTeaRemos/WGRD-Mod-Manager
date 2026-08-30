@@ -2,6 +2,7 @@
 
 #include "manager/install/ContentInstaller.h"
 #include "manager/install/StagedChunkSource.h"
+#include "manager/io/MappedFile.h"
 #include "manager/text/ServiceText.h"
 
 #include "domain/types/content/ChunkFileNaming.h"
@@ -26,7 +27,8 @@ namespace {
 	bool SeedFile_(
 		const std::filesystem::path& original,
 		const std::filesystem::path& target,
-		const std::uint64_t size
+		const std::uint64_t size,
+		bool& resumed
 	) {
 		std::error_code failure;
 		std::filesystem::create_directories(target.parent_path(), failure);
@@ -35,7 +37,15 @@ namespace {
 			return false;
 		}
 
-		std::filesystem::remove(target, failure);
+		if (std::filesystem::is_regular_file(target, failure) && !failure) {
+			resumed = true;
+
+			failure.clear();
+			std::filesystem::resize_file(target, static_cast<std::uintmax_t>(size), failure);
+
+			return !failure;
+		}
+
 		failure.clear();
 
 		if (std::filesystem::is_regular_file(original, failure) && !failure) {
@@ -147,6 +157,120 @@ std::uint64_t InstallService::CompletedInstalls() const {
 	return _completed.load();
 }
 
+std::expected<void, domain::InstallStartError> InstallService::Verify(const std::string_view identifier) {
+	if (_busy) {
+		return std::unexpected(domain::InstallStartError::Busy);
+	}
+
+	const auto announce = _receiver->Retained(std::string(identifier));
+	if (!announce.has_value()) {
+		return std::unexpected(domain::InstallStartError::UnknownIdentifier);
+	}
+
+	const auto sealed = _store->Load(announce->manifestDigest.ToHex());
+	if (!sealed.has_value()) {
+		return std::unexpected(domain::InstallStartError::ManifestMissing);
+	}
+
+	const auto authenticated = _authenticator->Authenticate(*sealed);
+	if (!authenticated.has_value()) {
+		return std::unexpected(domain::InstallStartError::ManifestRejected);
+	}
+
+	const auto decoded = _codec->Decode(authenticated->payload);
+	if (!decoded.has_value()) {
+		return std::unexpected(domain::InstallStartError::ManifestRejected);
+	}
+
+	bool expected = false;
+	if (!_busy.compare_exchange_strong(expected, true)) {
+		return std::unexpected(domain::InstallStartError::Busy);
+	}
+
+	JoinWorker_();
+
+	{
+		const std::scoped_lock lock(_guard);
+
+		_announce = *announce;
+		_target = *decoded;
+		_progress = domain::InstallProgress{};
+		_progress.identifier = _target.Identifier();
+		_progress.modName = _target.ModName();
+		_progress.version = _target.Version();
+		_progress.remoteBytes = _target.TotalBytes();
+	}
+
+	Publish_(domain::InstallPhase::Verifying, std::string(text::VERIFY_CHECKING));
+
+	_worker = std::thread([this]() {
+			RunVerify_();
+		}
+	);
+
+	return {};
+}
+
+void InstallService::RunVerify_() {
+	domain::ModManifest target;
+
+	{
+		const std::scoped_lock lock(_guard);
+		target = _target;
+	}
+
+	const std::filesystem::path modFolder = _modsDirectory / target.ModName();
+
+	std::error_code failure;
+	if (!std::filesystem::is_directory(modFolder, failure)) {
+		Publish_(domain::InstallPhase::Failed, std::string(text::VERIFY_FOLDER_MISSING));
+		_busy = false;
+		return;
+	}
+
+	std::uint64_t verified = 0;
+	std::size_t damaged = 0;
+
+	for (const domain::ManifestFile& file : target.Files()) {
+		const auto mapped = MappedFile::Open(modFolder / file.path);
+
+		if (!mapped.has_value() || mapped->Size() != file.size) {
+			++damaged;
+			continue;
+		}
+
+		const std::span<const std::byte> content = mapped->Data();
+
+		for (const domain::ManifestChunk& chunk : file.chunks) {
+			if (chunk.offset + chunk.length > content.size()) {
+				++damaged;
+				continue;
+			}
+
+			const std::span<const std::byte> slice = content.subspan(chunk.offset, chunk.length);
+
+			if (_hasher->Hash(slice) != chunk.digest) {
+				++damaged;
+				continue;
+			}
+
+			verified += chunk.length;
+
+			const std::scoped_lock lock(_guard);
+			_progress.fetchedBytes = verified;
+		}
+	}
+
+	if (damaged > 0) {
+		Publish_(domain::InstallPhase::Failed, std::string(text::VERIFY_DAMAGED));
+		_busy = false;
+		return;
+	}
+
+	Publish_(domain::InstallPhase::Done, std::string(text::VERIFY_INTACT));
+	_busy = false;
+}
+
 std::expected<void, domain::InstallStartError> InstallService::Start(std::string_view identifier) {
 	if (_busy) {
 		return std::unexpected(domain::InstallStartError::Busy);
@@ -231,7 +355,8 @@ void InstallService::BeginManifestFetch_() {
 		announce.torrentInfoHash,
 		StagingRoot_(),
 		wanted,
-		{}
+		{},
+		false
 	);
 
 	if (!begun.has_value()) {
@@ -339,10 +464,12 @@ void InstallService::RunPlan_() {
 	std::vector<std::string> wanted;
 	std::vector<domain::ChunkDestination> destinations;
 
+	bool resumed = false;
+
 	for (const domain::FilePlan& file : plan.Files()) {
 		const std::filesystem::path staged = StagedPathFor_(modFolder, file.path);
 
-		if (!SeedFile_(modFolder / file.path, staged, file.size)) {
+		if (!SeedFile_(modFolder / file.path, staged, file.size, resumed)) {
 			Publish_(domain::InstallPhase::Failed, std::string(text::INSTALL_FOLDER_UNWRITABLE));
 			_busy = false;
 			return;
@@ -386,7 +513,8 @@ void InstallService::RunPlan_() {
 		_announce.torrentInfoHash,
 		StagingRoot_(),
 		wanted,
-		destinations
+		destinations,
+		resumed
 	);
 
 	if (!begun.has_value()) {

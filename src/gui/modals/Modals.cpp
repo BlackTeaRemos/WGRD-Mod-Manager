@@ -334,6 +334,29 @@ void Modals::DrawDetail_(
 			state.SetScreen(Screen::Transfers);
 		}
 	}
+
+	const ImVec2 installSize = design::ButtonSize(
+		row->installed ? text::modal::ACTION_REINSTALL : text::modal::ACTION_INSTALL,
+		12.0f
+	);
+
+	const bool verifiable = row->installed && row->manifestHeld && !busy;
+
+	if (design::Button(
+		    ImVec2(origin.x + 16.0f + installSize.x, origin.y + height - 28.0f),
+		    text::modal::ACTION_VERIFY,
+		    design::ButtonVariant::Neutral,
+		    false,
+		    12.0f,
+		    verifiable
+	    )
+	    && verifiable) {
+		const auto started = services.install->Verify(row->identifier);
+		if (started.has_value()) {
+			state.CloseDetail();
+			state.SetScreen(Screen::Transfers);
+		}
+	}
 }
 
 

@@ -96,6 +96,11 @@ constexpr std::string_view INSTALL_SWAP_FAILED = "install swap failed";
 constexpr std::string_view INSTALL_CANCELLED = "cancelled";
 constexpr std::string_view INSTALLED_PREFIX = "installed ";
 
+constexpr std::string_view VERIFY_CHECKING = "checking installed chunks";
+constexpr std::string_view VERIFY_FOLDER_MISSING = "mod folder missing";
+constexpr std::string_view VERIFY_DAMAGED = "installed mod damaged";
+constexpr std::string_view VERIFY_INTACT = "installed mod intact";
+
 constexpr std::string_view PATCHER_CHECKING = "checking patcher";
 constexpr std::string_view PATCHER_REPOSITORY_UNSET = "patcher repository unset";
 constexpr std::string_view PATCHER_CHECK_FAILED = "patcher check failed";

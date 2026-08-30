@@ -49,6 +49,10 @@ public:
 		std::string_view identifier
 	) override;
 
+	[[nodiscard]] std::expected<void, domain::InstallStartError> Verify(
+		std::string_view identifier
+	) override;
+
 	[[nodiscard]] domain::InstallProgress Progress() const override;
 
 	[[nodiscard]] std::uint64_t CompletedInstalls() const override;
@@ -67,6 +71,8 @@ private:
 	void BeginManifestFetch_();
 
 	void RunInstall_();
+
+	void RunVerify_();
 
 	void Publish_(domain::InstallPhase phase, std::string message);
 
