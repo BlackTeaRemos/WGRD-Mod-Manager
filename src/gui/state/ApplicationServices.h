@@ -3,6 +3,7 @@
 #include "domain/interfaces/order/IOrderService.h"
 #include "domain/interfaces/order/IProfileService.h"
 #include "domain/interfaces/platform/IFilePicker.h"
+#include "domain/interfaces/platform/IUriLauncher.h"
 #include "domain/interfaces/services/IAnnounceGossip.h"
 #include "domain/interfaces/services/ICatalogService.h"
 #include "domain/interfaces/services/IInstallService.h"
@@ -25,6 +26,7 @@ struct ApplicationServices {
 	domain::IUpdateService* updates = nullptr;
 	domain::IRegistryUpdater* registry = nullptr;
 	const domain::IFilePicker* files = nullptr;
+	const domain::IUriLauncher* uris = nullptr;
 	domain::IAnnounceGossip* gossip = nullptr;
 	domain::IProfileService* profiles = nullptr;
 	domain::IModRemovalService* removal = nullptr;

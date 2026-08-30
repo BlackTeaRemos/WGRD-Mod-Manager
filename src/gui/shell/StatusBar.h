@@ -24,5 +24,13 @@ private:
 		float cursor,
 		const ApplicationServices& services
 	);
+
+	[[nodiscard]] static ImU32 SupportTone_();
+
+	[[nodiscard]] float DrawSupport_(ImVec2 origin, float cursor);
+
+	void DrawSupportPanel_(ImVec2 origin, float anchorX, const ApplicationServices& services) const;
+
+	bool _supportOpen = false;
 };
 }

@@ -4,6 +4,7 @@
 #include "downloader/transfer/TorrentSession.h"
 #include "gui/Application.h"
 #include "gui/platform/Win32FilePicker.h"
+#include "gui/platform/Win32UriLauncher.h"
 #include "manager/announce/AnnounceReceiver.h"
 #include "manager/environment/GameLocator.h"
 #include "manager/hash/Blake3Hasher.h"
@@ -184,9 +185,10 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 	);
 
 	wgrd::gui::Win32FilePicker filePicker(nullptr);
+	const wgrd::gui::Win32UriLauncher uriLauncher;
 
 	const wgrd::gui::ApplicationServices services{
-		orderService.get(), catalogService.get(), publishService.get(), &swarm, &swarm, installService.get(), &updateService, registryUpdater.get(), &filePicker, &swarm, profileService.get()
+		orderService.get(), catalogService.get(), publishService.get(), &swarm, &swarm, installService.get(), &updateService, registryUpdater.get(), &filePicker, &uriLauncher, &swarm, profileService.get()
 		, removalService.get(), patcherService.get()
 	};
 

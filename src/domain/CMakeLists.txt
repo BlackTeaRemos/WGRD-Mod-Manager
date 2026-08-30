@@ -72,6 +72,7 @@
         interfaces/services/IUpdateService.h
         interfaces/trust/IAnnounceReceiver.h
         interfaces/platform/IFilePicker.h
+        interfaces/platform/IUriLauncher.h
         interfaces/services/IAnnounceGossip.h
         interfaces/trust/IAnnounceCatalogue.h
         types/distribution/AnnounceSummary.h

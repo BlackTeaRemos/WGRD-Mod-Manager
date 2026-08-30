@@ -32,6 +32,17 @@ constexpr std::string_view RESTART = "RESTART";
 constexpr std::string_view NOT_INSTALLED = "not installed";
 constexpr std::string_view UNKNOWN_VERSION = "unknown";
 
+constexpr std::string_view SUPPORT = "SUPPORT";
+constexpr std::string_view SUPPORT_PANEL = "SUPPORT";
+constexpr std::string_view GETLY = "Getly";
+constexpr std::string_view GETLY_URI = "https://www.getly.store/store/blacktearemos-msl0hsmo";
+constexpr std::string_view PATREON = "Patreon";
+constexpr std::string_view PATREON_HINT_LEAD = "If you need Patreon to support, contact me (BlackTeaRemos) on";
+constexpr std::string_view PATREON_HINT_TAIL = "and tell me it, so i know it's demanded";
+constexpr std::string_view DISCORD_URI = "https://discord.gg/4DWh495wZa";
+constexpr std::string_view STAR_REPOSITORIES = "Also you can star related repositories!";
+constexpr std::string_view URI_PREFIX = "https://";
+
 constexpr std::string_view STAMP_FORMAT = "v{} {}";
 constexpr std::string_view INDEX_FORMAT = "{} @ {}";
 constexpr std::string_view TRUST_FORMAT = "{} keys - {} announced";

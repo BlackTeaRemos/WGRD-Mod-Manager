@@ -15,6 +15,8 @@ wgrd_add_module(gui
         platform/Win32Window.cpp
         platform/Win32FilePicker.h
         platform/Win32FilePicker.cpp
+        platform/Win32UriLauncher.h
+        platform/Win32UriLauncher.cpp
         render/IRenderBackend.h
         render/Direct3D11Backend.h
         render/Direct3D11Backend.cpp
