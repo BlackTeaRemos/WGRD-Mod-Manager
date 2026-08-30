@@ -612,7 +612,11 @@ void TorrentSession::RefreshFetch_() {
 	                       ? static_cast<std::uint64_t>(received - verified)
 	                       : 0;
 
-	if (_prioritised && status.is_finished) {
+	const bool wantedComplete = _fetch.wantedBytes > 0
+	                            && _fetch.fetchedBytes >= _fetch.wantedBytes
+	                            && _fetch.inFlightBytes == 0;
+
+	if (_prioritised && (status.is_finished || wantedComplete)) {
 		_fetch.phase = domain::FetchPhase::Complete;
 	}
 }
