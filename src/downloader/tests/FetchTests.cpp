@@ -1,6 +1,7 @@
 ﻿#include "downloader/torrent/build/ChunkSetTorrentBuilder.h"
 #include "downloader/transfer/TorrentSession.h"
 
+#include "domain/types/content/ChunkDestination.h"
 #include "domain/types/content/ChunkFileNaming.h"
 #include "domain/types/content/ModManifest.h"
 
@@ -12,6 +13,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <system_error>
 #include <thread>
@@ -71,6 +73,46 @@ ModManifest BuildManifest(const std::vector<std::uint32_t>& lengths) {
 	ManifestFile file{"packs/ZZ_Win.dat", offset, std::move(chunks)};
 
 	return ModManifest(PublisherFingerprint{}, "angel_maps", 1, {file});
+}
+
+ModManifest BuildNamedManifest(const std::vector<std::uint32_t>& lengths, const std::string& modName) {
+	std::vector<ManifestChunk> chunks;
+	std::uint64_t offset = 0;
+
+	for (std::size_t index = 0; index < lengths.size(); ++index) {
+		chunks.push_back(ManifestChunk{DigestFor(index), offset, lengths[index]});
+		offset += lengths[index];
+	}
+
+	ManifestFile file{"packs/ZZ_Win.dat", offset, std::move(chunks)};
+
+	return ModManifest(PublisherFingerprint{}, modName, 1, {file});
+}
+
+void WriteFilled(const std::filesystem::path& target, const std::uint64_t bytes, const char fill) {
+	std::error_code failure;
+	std::filesystem::create_directories(target.parent_path(), failure);
+
+	std::ofstream output(target, std::ios::binary | std::ios::trunc);
+	for (std::uint64_t position = 0; position < bytes; ++position) {
+		output.put(fill);
+	}
+}
+
+std::vector<char> ReadWhole(const std::filesystem::path& source) {
+	std::ifstream input(source, std::ios::binary);
+
+	return std::vector<char>(
+		std::istreambuf_iterator<char>(input),
+		std::istreambuf_iterator<char>()
+	);
+}
+
+void WriteSealed(const std::filesystem::path& target) {
+	const std::vector<std::uint8_t> sealed(512, 0x5A);
+
+	std::ofstream output(target, std::ios::binary | std::ios::trunc);
+	output.write(reinterpret_cast<const char*>(sealed.data()), static_cast<std::streamsize>(sealed.size()));
 }
 
 void WritePayload(const std::filesystem::path& target, const std::uint64_t bytes) {
@@ -276,5 +318,114 @@ TEST_CASE("fetch pulls the signed manifest before any chunks") {
 		REQUIRE_FALSE(std::filesystem::exists(
 				received / ChunkFileNaming::FileNameFor(DigestFor(index)))
 		);
+	}
+}
+
+TEST_CASE("fetch writes destinations without touching a mod that shares chunks") {
+	const TemporaryTree seederTree("seed-destinations");
+	const TemporaryTree leecherTree("leech-destinations");
+
+	const std::vector<std::uint32_t> lengths = {20000, 50000, 16384, 65536};
+	const ModManifest manifest = BuildManifest(lengths);
+	const std::uint64_t totalBytes = manifest.TotalBytes();
+
+	const std::filesystem::path modFolder = seederTree.Root() / "mod";
+	WritePayload(modFolder / "packs" / "ZZ_Win.dat", totalBytes);
+
+	const std::filesystem::path sealedPath = seederTree.Root() / "manifest.wgrdm";
+	WriteSealed(sealedPath);
+
+	const std::vector<std::uint8_t> sealed(512, 0x5A);
+
+	const ChunkSetTorrentBuilder builder;
+	const auto torrent = builder.Build(manifest, modFolder, sealed);
+	REQUIRE(torrent.has_value());
+
+	TorrentSession seeder(seederTree.Root(), std::string(LOOPBACK), false);
+	REQUIRE(AwaitPort(seeder) != 0);
+	REQUIRE(seeder.Announce(manifest, modFolder, sealedPath).has_value());
+
+	TorrentSession leecher(leecherTree.Root(), std::string(LOOPBACK), false);
+	REQUIRE(AwaitPort(leecher) != 0);
+
+	const ModManifest neighbour = BuildNamedManifest(lengths, "other_maps");
+	const std::filesystem::path neighbourFolder = leecherTree.Root() / "other";
+	const std::filesystem::path neighbourFile = neighbourFolder / "packs" / "ZZ_Win.dat";
+
+	WriteFilled(neighbourFile, totalBytes, static_cast<char>(0x7E));
+
+	const std::filesystem::path neighbourSealed = leecherTree.Root() / "other.wgrdm";
+	WriteSealed(neighbourSealed);
+
+	REQUIRE(leecher.Announce(neighbour, neighbourFolder, neighbourSealed).has_value());
+
+	const std::vector<char> neighbourBefore = ReadWhole(neighbourFile);
+
+	const std::filesystem::path targetFile =
+			leecherTree.Root() / "target" / "packs" / "ZZ_Win.dat";
+
+	WriteFilled(targetFile, totalBytes, char{0});
+
+	std::vector<std::string> wanted;
+	std::vector<wgrd::domain::ChunkDestination> destinations;
+
+	for (std::size_t index = 0; index < lengths.size(); ++index) {
+		const std::string chunkFileName = ChunkFileNaming::FileNameFor(DigestFor(index));
+
+		wanted.push_back(chunkFileName);
+
+		destinations.push_back(wgrd::domain::ChunkDestination{
+				chunkFileName,
+				targetFile,
+				manifest.Files().front().chunks[index].offset,
+				lengths[index]
+			}
+		);
+	}
+
+	const std::filesystem::path staging = leecherTree.Root() / "staging";
+
+	REQUIRE(leecher.Begin("test/angel_maps", torrent->infoHash, staging, wanted, destinations, false)
+		.has_value());
+
+	leecher.ConnectLocalPeer(seeder.ListenPort());
+
+	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(90);
+	auto nextDial = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+
+	while (std::chrono::steady_clock::now() < deadline) {
+		seeder.Poll();
+		leecher.Poll();
+
+		if (std::chrono::steady_clock::now() >= nextDial) {
+			leecher.ConnectLocalPeer(seeder.ListenPort());
+			nextDial = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+		}
+
+		if (leecher.Fetch().phase == FetchPhase::Complete) {
+			break;
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(25));
+	}
+
+	REQUIRE(leecher.Fetch().phase == FetchPhase::Complete);
+
+	const std::vector<char> expected = ReadWhole(modFolder / "packs" / "ZZ_Win.dat");
+	const std::vector<char> received = ReadWhole(targetFile);
+
+	REQUIRE(received.size() == expected.size());
+	REQUIRE(received == expected);
+
+	const std::vector<char> neighbourAfter = ReadWhole(neighbourFile);
+
+	REQUIRE(neighbourAfter == neighbourBefore);
+
+	for (std::size_t index = 0; index < lengths.size(); ++index) {
+		const std::filesystem::path chunkFile =
+				staging / (PublisherFingerprint{}.ToHex() + "_angel_maps")
+				/ ChunkFileNaming::FileNameFor(DigestFor(index));
+
+		REQUIRE_FALSE(std::filesystem::exists(chunkFile));
 	}
 }

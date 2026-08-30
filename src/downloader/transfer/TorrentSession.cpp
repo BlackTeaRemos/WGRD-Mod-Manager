@@ -406,7 +406,10 @@ std::expected<domain::SeedEntry, domain::SeedError> TorrentSession::Announce(
 	}
 
 	_seeded.push_back(SeededTorrent{
-			identifier, std::make_shared<libtorrent::torrent_handle>(std::move(handle)), manifest
+			identifier,
+			std::make_shared<libtorrent::torrent_handle>(std::move(handle)),
+			manifest,
+			modFolder
 		}
 	);
 
@@ -438,7 +441,7 @@ bool TorrentSession::StopSeeding(std::string_view identifier) {
 
 	const auto position = static_cast<std::size_t>(std::distance(_seeded.begin(), seeded));
 
-	_locator.Forget(seeded->manifest);
+	_locator.Forget(seeded->manifest, seeded->modFolder);
 
 	_seeded.erase(seeded);
 
@@ -502,16 +505,13 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 		_wanted.insert(fileName);
 	}
 
-	_fetchDestinations.clear();
 	for (const domain::ChunkDestination& destination : destinations) {
-		_locator.RegisterFile(
+		_locator.RegisterDestination(
 			destination.chunkFileName,
 			destination.file,
 			destination.offset,
 			destination.length
 		);
-
-		_fetchDestinations.push_back(destination.chunkFileName);
 	}
 
 	_locator.SetVerifyExisting(verifyExisting);
@@ -568,11 +568,7 @@ void TorrentSession::Cancel() {
 	_prioritised = false;
 	_settledPolls = 0;
 
-	for (const std::string& chunkFileName : _fetchDestinations) {
-		_locator.ForgetFile(chunkFileName);
-	}
-
-	_fetchDestinations.clear();
+	_locator.ClearDestinations();
 	_wanted.clear();
 
 	if (_fetch.Busy()) {

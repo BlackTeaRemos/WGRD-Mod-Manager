@@ -104,6 +104,7 @@ private:
 		std::string identifier;
 		std::shared_ptr<libtorrent::torrent_handle> handle;
 		domain::ModManifest manifest;
+		std::filesystem::path modFolder;
 	};
 
 	[[nodiscard]] bool AlreadySeeding_(const std::string& identifier) const;
@@ -143,7 +144,6 @@ private:
 	bool _enabled;
 	std::unique_ptr<libtorrent::torrent_handle> _fetching;
 	std::set<std::string> _wanted;
-	std::vector<std::string> _fetchDestinations;
 	bool _prioritised;
 	int _settledPolls = 0;
 	domain::FetchStatus _fetch;

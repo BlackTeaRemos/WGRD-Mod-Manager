@@ -195,26 +195,72 @@ TEST_CASE("seeder serves chunks straight from the installed mod folder") {
 	locator.Register(manifest, modFolder);
 	REQUIRE(locator.Count() == lengths.size());
 
-	SECTION("locator keeps every placement of a repeated chunk") {
+	SECTION("locator keeps every destination of a repeated chunk") {
 		wgrd::downloader::ChunkLocator repeated;
 
 		const std::string name = "repeated.chunk";
 
-		repeated.RegisterFile(name, modFolder / "a.dat", 0, 64);
-		repeated.RegisterFile(name, modFolder / "a.dat", 4096, 64);
-		repeated.RegisterFile(name, modFolder / "b.dat", 128, 64);
-		repeated.RegisterFile(name, modFolder / "a.dat", 0, 64);
+		repeated.RegisterDestination(name, modFolder / "a.dat", 0, 64);
+		repeated.RegisterDestination(name, modFolder / "a.dat", 4096, 64);
+		repeated.RegisterDestination(name, modFolder / "b.dat", 128, 64);
+		repeated.RegisterDestination(name, modFolder / "a.dat", 0, 64);
 
-		REQUIRE(repeated.Count() == 1);
+		REQUIRE(repeated.DestinationCount() == 1);
+		REQUIRE(repeated.FindDestinations(name).size() == 3);
+		REQUIRE(repeated.HasDestination(name));
 
-		const auto placements = repeated.FindAll(name);
+		repeated.ClearDestinations();
 
-		REQUIRE(placements.size() == 3);
-		REQUIRE(repeated.Find(name).has_value());
+		REQUIRE(repeated.FindDestinations(name).empty());
+		REQUIRE_FALSE(repeated.HasDestination(name));
+	}
 
-		repeated.ForgetFile(name);
+	SECTION("destinations never reach seeded placements") {
+		wgrd::downloader::ChunkLocator shared;
 
-		REQUIRE(repeated.FindAll(name).empty());
+		const std::string name = "shared.chunk";
+
+		shared.RegisterFile(name, modFolder / "installed.dat", 512, 64);
+		shared.RegisterDestination(name, modFolder / "target.dat", 128, 64);
+
+		REQUIRE(shared.FindDestinations(name).size() == 1);
+		REQUIRE(shared.FindDestinations(name).front().file == modFolder / "target.dat");
+
+		const auto seeded = shared.Find(name);
+
+		REQUIRE(seeded.has_value());
+		REQUIRE(seeded->file == modFolder / "installed.dat");
+
+		shared.ClearDestinations();
+
+		REQUIRE(shared.Find(name).has_value());
+		REQUIRE(shared.Count() == 1);
+	}
+
+	SECTION("forgetting one mod keeps another sharing the chunk") {
+		wgrd::downloader::ChunkLocator shared;
+
+		const std::filesystem::path other = seederTree.Root() / "other";
+
+		shared.Register(manifest, modFolder);
+		shared.Register(manifest, other);
+
+		const std::string name = wgrd::domain::ChunkFileNaming::FileNameFor(
+			manifest.Files().front().chunks.front().digest
+		);
+
+		REQUIRE(shared.Count() == lengths.size());
+
+		shared.Forget(manifest, other);
+
+		const auto surviving = shared.Find(name);
+
+		REQUIRE(surviving.has_value());
+		REQUIRE(surviving->file == modFolder / manifest.Files().front().path);
+
+		shared.Forget(manifest, modFolder);
+
+		REQUIRE(shared.Count() == 0);
 	}
 
 	const auto torrent = VirtualChunkSetTorrent::Create(

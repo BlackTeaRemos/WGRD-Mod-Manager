@@ -105,9 +105,22 @@ libtorrent::storage_holder InstalledFolderStorage::new_torrent(
 			continue;
 		}
 
-		if (!_locator->Find(parameters.files.file_path(fileIndex)).has_value()) {
+		if (_locator->HasDestination(parameters.files.file_path(fileIndex))) {
 			writable = true;
 			break;
+		}
+	}
+
+	if (!writable) {
+		for (const libtorrent::file_index_t fileIndex : parameters.files.file_range()) {
+			if (parameters.files.pad_file_at(fileIndex)) {
+				continue;
+			}
+
+			if (!_locator->Find(parameters.files.file_path(fileIndex)).has_value()) {
+				writable = true;
+				break;
+			}
 		}
 	}
 
@@ -179,12 +192,38 @@ bool InstalledFolderStorage::ReadRange_(
 
 		const std::string relative = files.file_path(slice.file_index);
 
-		if (writable && ReadFileRange(
-			    savePath / relative,
-			    static_cast<std::uint64_t>(slice.offset),
-			    slice.size,
-			    target + written
-		    )) {
+		if (writable) {
+			const std::vector<ChunkLocation> destinations = _locator->FindDestinations(relative);
+
+			if (destinations.empty()) {
+				if (!ReadFileRange(
+					savePath / relative,
+					static_cast<std::uint64_t>(slice.offset),
+					slice.size,
+					target + written
+				)) {
+					return false;
+				}
+
+				written += slice.size;
+				continue;
+			}
+
+			const ChunkLocation& destination = destinations.front();
+
+			if (slice.offset + slice.size > static_cast<std::int64_t>(destination.length)) {
+				return false;
+			}
+
+			if (!ReadFileRange(
+				destination.file,
+				destination.offset + static_cast<std::uint64_t>(slice.offset),
+				slice.size,
+				target + written
+			)) {
+				return false;
+			}
+
 			written += slice.size;
 			continue;
 		}
@@ -253,7 +292,7 @@ bool InstalledFolderStorage::WriteRange_(
 
 		const std::string relative = files.file_path(slice.file_index);
 
-		const std::vector<ChunkLocation> locations = _locator->FindAll(relative);
+		const std::vector<ChunkLocation> locations = _locator->FindDestinations(relative);
 
 		if (!locations.empty()) {
 			for (const ChunkLocation& location : locations) {
