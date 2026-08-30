@@ -694,3 +694,92 @@ TEST_CASE("fresh fetch reproduces a multi file mod with uneven chunks") {
 		REQUIRE(received == originals[index]);
 	}
 }
+
+TEST_CASE("seeder serves the right manifest when several mods are seeded") {
+	const TemporaryTree seederTree("seed-two-mods");
+	const TemporaryTree leecherTree("leech-two-mods");
+
+	const std::vector<std::uint32_t> lengths = {20000, 50000};
+
+	const ModManifest first = BuildNamedManifest(lengths, "first_maps");
+	const ModManifest second = BuildNamedManifest(lengths, "second_maps");
+
+	const std::filesystem::path firstFolder = seederTree.Root() / "first";
+	const std::filesystem::path secondFolder = seederTree.Root() / "second";
+
+	WritePayload(firstFolder / "packs" / "ZZ_Win.dat", first.TotalBytes());
+	WritePayload(secondFolder / "packs" / "ZZ_Win.dat", second.TotalBytes());
+
+	const std::vector<std::uint8_t> firstSealed(512, 0x11);
+	const std::vector<std::uint8_t> secondSealed(512, 0x22);
+
+	const std::filesystem::path firstSealedPath = seederTree.Root() / "first.wgrdm";
+	const std::filesystem::path secondSealedPath = seederTree.Root() / "second.wgrdm";
+
+	{
+		std::ofstream output(firstSealedPath, std::ios::binary | std::ios::trunc);
+		output.write(reinterpret_cast<const char*>(firstSealed.data()), 512);
+	}
+
+	{
+		std::ofstream output(secondSealedPath, std::ios::binary | std::ios::trunc);
+		output.write(reinterpret_cast<const char*>(secondSealed.data()), 512);
+	}
+
+	const ChunkSetTorrentBuilder builder;
+	const auto torrent = builder.Build(second, secondFolder, secondSealed);
+	REQUIRE(torrent.has_value());
+
+	TorrentSession seeder(seederTree.Root(), std::string(LOOPBACK), false);
+	REQUIRE(AwaitPort(seeder) != 0);
+
+	REQUIRE(seeder.Announce(first, firstFolder, firstSealedPath).has_value());
+	REQUIRE(seeder.Announce(second, secondFolder, secondSealedPath).has_value());
+
+	TorrentSession leecher(leecherTree.Root(), std::string(LOOPBACK), false);
+	REQUIRE(AwaitPort(leecher) != 0);
+
+	const std::vector<std::string> wanted = {
+		std::string(ChunkFileNaming::MANIFEST_FILE), ChunkFileNaming::FileNameFor(DigestFor(0))
+	};
+
+	const std::filesystem::path staging = leecherTree.Root() / "staging";
+
+	REQUIRE(leecher.Begin("test/second_maps", torrent->infoHash, staging, wanted, {}, false)
+		.has_value());
+
+	leecher.ConnectLocalPeer(seeder.ListenPort());
+
+	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(90);
+	auto nextDial = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+
+	while (std::chrono::steady_clock::now() < deadline) {
+		seeder.Poll();
+		leecher.Poll();
+
+		if (std::chrono::steady_clock::now() >= nextDial) {
+			leecher.ConnectLocalPeer(seeder.ListenPort());
+			nextDial = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+		}
+
+		if (leecher.Fetch().phase == FetchPhase::Complete) {
+			break;
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(25));
+	}
+
+	const wgrd::domain::FetchStatus status = leecher.Fetch();
+
+	REQUIRE(status.hashFailures == 0);
+	REQUIRE(status.bannedPeers == 0);
+	REQUIRE(status.phase == FetchPhase::Complete);
+
+	const std::filesystem::path receivedManifest =
+			staging / second.TorrentName() / std::string(ChunkFileNaming::MANIFEST_FILE);
+
+	const std::vector<char> manifestBytes = ReadWhole(receivedManifest);
+
+	REQUIRE(manifestBytes.size() == secondSealed.size());
+	REQUIRE(static_cast<std::uint8_t>(manifestBytes.front()) == 0x22);
+}

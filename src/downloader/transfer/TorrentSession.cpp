@@ -365,7 +365,7 @@ std::expected<domain::SeedEntry, domain::SeedError> TorrentSession::Announce(
 	}
 
 	_locator.RegisterFile(
-		std::string(domain::ChunkFileNaming::MANIFEST_FILE),
+		manifest.TorrentName() + "/" + std::string(domain::ChunkFileNaming::MANIFEST_FILE),
 		sealedManifestPath,
 		0,
 		sealed.size()

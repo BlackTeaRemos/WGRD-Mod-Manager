@@ -56,7 +56,15 @@ std::vector<ChunkLocation> ChunkLocator::Lookup_(
 	const std::map<std::string, std::vector<ChunkLocation>>& table,
 	const std::string_view chunkFileName
 ) {
-	const std::string leaf(domain::ChunkFileNaming::LeafOf(chunkFileName));
+	std::string normalised(chunkFileName);
+	std::ranges::replace(normalised, '\\', '/');
+
+	const auto exact = table.find(normalised);
+	if (exact != table.end()) {
+		return exact->second;
+	}
+
+	const std::string leaf(domain::ChunkFileNaming::LeafOf(normalised));
 
 	const auto match = table.find(leaf);
 	if (match == table.end()) {
@@ -100,6 +108,10 @@ void ChunkLocator::Forget(
 	const std::filesystem::path& modFolder
 ) {
 	const std::scoped_lock lock(_guard);
+
+	_locations.erase(
+		manifest.TorrentName() + "/" + std::string(domain::ChunkFileNaming::MANIFEST_FILE)
+	);
 
 	for (const domain::ManifestFile& file : manifest.Files()) {
 		for (const domain::ManifestChunk& chunk : file.chunks) {
