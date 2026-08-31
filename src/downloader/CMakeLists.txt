@@ -6,6 +6,8 @@ wgrd_add_module(downloader
         announce/AnnounceWireCodec.cpp
         announce/PeerAnnounceBudget.h
         announce/PeerAnnounceBudget.cpp
+        announce/OutstandingWantTracker.h
+        announce/OutstandingWantTracker.cpp
         announce/AnnounceExchange.h
         announce/AnnounceExchange.cpp
         announce/AnnounceGossipPeerPlugin.h
@@ -23,10 +25,24 @@ wgrd_add_module(downloader
         torrent/chunkset/ChunkFolderSource.cpp
         storage/ChunkLocator.h
         storage/ChunkLocator.cpp
+        storage/ChunkRangeIo.h
+        storage/ChunkRangeIo.cpp
         storage/InstalledFolderStorage.h
         storage/InstalledFolderStorage.cpp
+        storage/ResumeAttestation.h
+        storage/ResumeAttestation.cpp
+        storage/ModFolderStamp.h
+        storage/ModFolderStamp.cpp
+        storage/SeedAttestations.h
+        storage/SeedAttestations.cpp
+        storage/SeedStampStore.h
+        storage/SeedStampStore.cpp
         storage/StorageFaults.h
         storage/StorageFaults.cpp
+        storage/StorageJobQueue.h
+        storage/StorageJobQueue.cpp
+        torrent/build/TorrentCache.h
+        torrent/build/TorrentCache.cpp
         torrent/build/ChunkMerkleHasher.h
         torrent/build/ChunkMerkleHasher.cpp
         torrent/build/VirtualChunkSetTorrent.h
@@ -39,6 +55,24 @@ wgrd_add_module(downloader
         torrent/build/ChunkSetTorrentBuilder.cpp
         torrent/build/ChunkSetTorrent.h
         torrent/build/ChunkSetTorrent.cpp
+        transfer/AlertRouter.h
+        transfer/AlertRouter.cpp
+        transfer/ControlSwarmStarter.h
+        transfer/ControlSwarmStarter.cpp
+        transfer/FetchRefresher.h
+        transfer/FetchRefresher.cpp
+        transfer/FetchState.h
+        transfer/FetchState.cpp
+        transfer/PeerDialer.h
+        transfer/PeerDialer.cpp
+        transfer/PresentHashSet.h
+        transfer/PresentHashSet.cpp
+        transfer/SeedRoster.h
+        transfer/SeedRoster.cpp
+        transfer/SeedTorrentAssembler.h
+        transfer/SeedTorrentAssembler.cpp
+        transfer/SessionSettings.h
+        transfer/SessionSettings.cpp
         transfer/SwarmNode.h
         transfer/SwarmNode.cpp
         transfer/TorrentSession.h

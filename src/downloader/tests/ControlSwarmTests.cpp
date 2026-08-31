@@ -1,5 +1,6 @@
 #include "downloader/announce/AnnounceWireCodec.h"
 #include "downloader/announce/ControlSwarmTorrent.h"
+#include "downloader/announce/OutstandingWantTracker.h"
 #include "downloader/announce/PeerAnnounceBudget.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -8,6 +9,7 @@
 #include <libtorrent/load_torrent.hpp>
 #include <libtorrent/torrent_info.hpp>
 
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -15,6 +17,7 @@ using wgrd::domain::AnnounceSummary;
 using wgrd::domain::PublisherFingerprint;
 using wgrd::downloader::AnnounceWireCodec;
 using wgrd::downloader::ControlSwarmTorrent;
+using wgrd::downloader::OutstandingWantTracker;
 using wgrd::downloader::PeerAnnounceBudget;
 
 namespace {
@@ -38,6 +41,35 @@ AnnounceSummary MakeSummary(std::string modName, const std::uint64_t version) {
 	REQUIRE(fingerprint.has_value());
 
 	return AnnounceSummary{*fingerprint, std::move(modName), version};
+}
+
+std::vector<std::uint8_t> MakeIdentityRecord(const AnnounceSummary& summary) {
+	std::vector<std::uint8_t> record(AnnounceWireCodec::RECORD_BYTES, 0xCD);
+
+	const auto fingerprint = summary.publisher.Bytes();
+	for (std::size_t position = 0; position < AnnounceWireCodec::FINGERPRINT_BYTES; ++position) {
+		record[AnnounceWireCodec::RECORD_FINGERPRINT_OFFSET + position] = fingerprint[position];
+	}
+
+	for (std::size_t position = 0; position < AnnounceWireCodec::MOD_NAME_BYTES; ++position) {
+		const std::uint8_t value = position < summary.modName.size()
+		                           ? static_cast<std::uint8_t>(summary.modName[position])
+		                           : 0;
+		record[AnnounceWireCodec::RECORD_MOD_NAME_OFFSET + position] = value;
+	}
+
+	for (std::size_t position = 0; position < AnnounceWireCodec::VERSION_BYTES; ++position) {
+		record[AnnounceWireCodec::RECORD_VERSION_OFFSET + position] =
+				static_cast<std::uint8_t>((summary.version >> (position * 8)) & 0xFF);
+	}
+
+	return record;
+}
+
+void DrainAllowance(PeerAnnounceBudget& budget, const PeerAnnounceBudget::Clock::time_point now) {
+	while (budget.Allowance() > 0) {
+		REQUIRE(budget.Consume(now));
+	}
 }
 }
 
@@ -183,4 +215,129 @@ TEST_CASE("penalty blocks and widens") {
 	budget.Penalise(now + std::chrono::minutes(2));
 
 	REQUIRE(budget.Blocked(now + std::chrono::minutes(6)));
+}
+
+TEST_CASE("single overage only drops") {
+	PeerAnnounceBudget budget;
+	const auto now = PeerAnnounceBudget::Clock::now();
+
+	DrainAllowance(budget, now);
+
+	REQUIRE_FALSE(budget.Consume(now));
+	REQUIRE_FALSE(budget.Blocked(now));
+}
+
+TEST_CASE("sustained overage climbs the ladder") {
+	PeerAnnounceBudget budget;
+	const auto now = PeerAnnounceBudget::Clock::now();
+
+	DrainAllowance(budget, now);
+
+	for (std::uint32_t attempt = 0; attempt + 1 < PeerAnnounceBudget::SUSTAINED_OVERAGE_THRESHOLD; ++attempt) {
+		REQUIRE_FALSE(budget.Consume(now));
+		REQUIRE_FALSE(budget.Blocked(now));
+	}
+
+	REQUIRE_FALSE(budget.Consume(now));
+	REQUIRE(budget.Blocked(now + std::chrono::seconds(30)));
+	REQUIRE_FALSE(budget.Blocked(now + std::chrono::minutes(2)));
+
+	const auto resumed = now + std::chrono::minutes(2);
+
+	while (budget.Consume(resumed)) {
+	}
+
+	for (std::uint32_t attempt = 0; attempt + 1 < PeerAnnounceBudget::SUSTAINED_OVERAGE_THRESHOLD; ++attempt) {
+		REQUIRE_FALSE(budget.Consume(resumed));
+	}
+
+	REQUIRE(budget.Blocked(resumed + std::chrono::minutes(4)));
+	REQUIRE_FALSE(budget.Blocked(resumed + std::chrono::minutes(5) + std::chrono::seconds(1)));
+}
+
+TEST_CASE("ladder resets after one clean hour") {
+	PeerAnnounceBudget budget;
+	const auto now = PeerAnnounceBudget::Clock::now();
+
+	budget.Penalise(now);
+	budget.Penalise(now + std::chrono::minutes(2));
+
+	REQUIRE(budget.Escalated());
+
+	const auto cleanLater = now + std::chrono::minutes(70);
+
+	budget.Penalise(cleanLater);
+
+	REQUIRE(budget.Blocked(cleanLater + std::chrono::seconds(30)));
+	REQUIRE_FALSE(budget.Blocked(cleanLater + std::chrono::minutes(1) + std::chrono::seconds(1)));
+}
+
+TEST_CASE("ladder holds inside a dirty hour") {
+	PeerAnnounceBudget budget;
+	const auto now = PeerAnnounceBudget::Clock::now();
+
+	budget.Penalise(now);
+	budget.Penalise(now + std::chrono::minutes(2));
+	budget.Penalise(now + std::chrono::minutes(30));
+
+	REQUIRE(budget.Blocked(now + std::chrono::minutes(50)));
+}
+
+TEST_CASE("want tracker refuses at ceiling") {
+	OutstandingWantTracker tracker;
+	const auto now = OutstandingWantTracker::Clock::now();
+
+	for (std::size_t index = 0; index < OutstandingWantTracker::MAXIMUM_OUTSTANDING; ++index) {
+		REQUIRE(tracker.Track("mod" + std::to_string(index), now));
+	}
+
+	REQUIRE_FALSE(tracker.Track("overflow", now));
+	REQUIRE(tracker.Count() == OutstandingWantTracker::MAXIMUM_OUTSTANDING);
+}
+
+TEST_CASE("want tracker rejects unsolicited redeem") {
+	OutstandingWantTracker tracker;
+	const auto now = OutstandingWantTracker::Clock::now();
+
+	REQUIRE(tracker.Track("wanted_mod", now));
+	REQUIRE(tracker.Redeem("wanted_mod"));
+	REQUIRE_FALSE(tracker.Redeem("wanted_mod"));
+	REQUIRE_FALSE(tracker.Redeem("never_wanted"));
+}
+
+TEST_CASE("want tracker expires stale wants") {
+	OutstandingWantTracker tracker;
+	const auto now = OutstandingWantTracker::Clock::now();
+
+	REQUIRE(tracker.Track("stale_mod", now));
+	REQUIRE(tracker.Track("fresh_mod", now));
+	REQUIRE(tracker.Track("fresh_mod", now + std::chrono::seconds(100)));
+
+	tracker.Prune(now + OutstandingWantTracker::WANT_EXPIRY);
+
+	REQUIRE_FALSE(tracker.Redeem("stale_mod"));
+	REQUIRE(tracker.Redeem("fresh_mod"));
+}
+
+TEST_CASE("record identity decodes") {
+	const AnnounceSummary summary = MakeSummary("angel_maps", 12);
+
+	const auto identity = AnnounceWireCodec::RecordSummary(MakeIdentityRecord(summary));
+
+	REQUIRE(identity.has_value());
+	REQUIRE(identity->publisher == summary.publisher);
+	REQUIRE(identity->modName == summary.modName);
+	REQUIRE(identity->version == summary.version);
+}
+
+TEST_CASE("record identity refuses empty name") {
+	const AnnounceSummary summary = MakeSummary("", 1);
+
+	REQUIRE_FALSE(AnnounceWireCodec::RecordSummary(MakeIdentityRecord(summary)).has_value());
+}
+
+TEST_CASE("record identity refuses wrong length") {
+	const std::vector<std::uint8_t> record(AnnounceWireCodec::RECORD_BYTES - 1, 0xAB);
+
+	REQUIRE_FALSE(AnnounceWireCodec::RecordSummary(record).has_value());
 }

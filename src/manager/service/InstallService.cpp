@@ -1,99 +1,19 @@
 #include "manager/service/InstallService.h"
 
 #include "manager/install/ContentInstaller.h"
+#include "manager/install/FetchPlanner.h"
+#include "manager/install/FetchedManifestAdopter.h"
+#include "manager/install/InstallErrorText.h"
+#include "manager/install/InstalledContentAuditor.h"
 #include "manager/install/StagedChunkSource.h"
-#include "manager/io/MappedFile.h"
 #include "manager/text/ServiceText.h"
 
 #include "domain/types/content/ChunkFileNaming.h"
 
-#include <fstream>
-#include <iterator>
-#include <set>
 #include <system_error>
 #include <utility>
 
 namespace wgrd::manager {
-namespace {
-	std::filesystem::path StagedPathFor_(
-		const std::filesystem::path& modFolder,
-		const std::string& relativePath
-	) {
-		const std::filesystem::path target = modFolder / relativePath;
-
-		return std::filesystem::path(target.string() + std::string(ContentInstaller::STAGING_SUFFIX));
-	}
-
-	bool SeedFile_(
-		const std::filesystem::path& original,
-		const std::filesystem::path& target,
-		const std::uint64_t size,
-		bool& resumed
-	) {
-		std::error_code failure;
-		std::filesystem::create_directories(target.parent_path(), failure);
-
-		if (failure) {
-			return false;
-		}
-
-		if (std::filesystem::is_regular_file(target, failure) && !failure) {
-			resumed = true;
-
-			failure.clear();
-			std::filesystem::resize_file(target, static_cast<std::uintmax_t>(size), failure);
-
-			return !failure;
-		}
-
-		failure.clear();
-
-		if (std::filesystem::is_regular_file(original, failure) && !failure) {
-			std::filesystem::copy_file(
-				original,
-				target,
-				std::filesystem::copy_options::overwrite_existing,
-				failure
-			);
-		}
-
-		if (failure || !std::filesystem::exists(target, failure)) {
-			failure.clear();
-
-			std::ofstream created(target, std::ios::binary | std::ios::trunc);
-			if (!created) {
-				return false;
-			}
-		}
-
-		failure.clear();
-		std::filesystem::resize_file(target, static_cast<std::uintmax_t>(size), failure);
-
-		return !failure;
-	}
-
-	std::string_view DescribeInstall(const InstallError failure) {
-		switch (failure) {
-			case InstallError::FolderUnwritable:
-				return text::INSTALL_FOLDER_UNWRITABLE;
-			case InstallError::HeldChunkMissing:
-				return text::INSTALL_HELD_MISSING;
-			case InstallError::HeldChunkUnreadable:
-				return text::INSTALL_HELD_UNREADABLE;
-			case InstallError::RemoteChunkUnavailable:
-				return text::INSTALL_REMOTE_UNAVAILABLE;
-			case InstallError::RemoteChunkCorrupt:
-				return text::INSTALL_REMOTE_CORRUPT;
-			case InstallError::WriteFailed:
-				return text::INSTALL_WRITE_FAILED;
-			case InstallError::SwapFailed:
-				return text::INSTALL_SWAP_FAILED;
-		}
-
-		return text::INSTALL_FAILED;
-	}
-}
-
 InstallService::InstallService(
 	std::filesystem::path modsDirectory,
 	std::filesystem::path dataDirectory,
@@ -104,7 +24,8 @@ InstallService::InstallService(
 	const domain::IManifestBuilder& manifestBuilder,
 	const domain::IContentHasher& hasher,
 	domain::IChunkFetcher& fetcher,
-	const InstalledReleaseStore& installed
+	const InstalledReleaseStore& installed,
+	domain::ISeedingService* seeding
 )
 	: _modsDirectory(std::move(modsDirectory))
 	, _dataDirectory(std::move(dataDirectory))
@@ -115,6 +36,7 @@ InstallService::InstallService(
 	, _manifestBuilder(&manifestBuilder)
 	, _fetcher(&fetcher)
 	, _installed(&installed)
+	, _seeding(seeding)
 	, _hasher(&hasher)
 	, _differ()
 	, _installer(hasher)
@@ -126,7 +48,8 @@ InstallService::InstallService(
 	, _awaitingManifest(false)
 	, _worker()
 	, _busy(false)
-	, _completed(0) {}
+	, _completed(0)
+	, _settled(0) {}
 
 InstallService::~InstallService() {
 	JoinWorker_();
@@ -148,6 +71,32 @@ void InstallService::Publish_(const domain::InstallPhase phase, std::string mess
 	_progress.message = std::move(message);
 }
 
+void InstallService::Conclude_(const domain::InstallPhase phase, std::string message) {
+	Publish_(phase, std::move(message));
+	_busy = false;
+	++_settled;
+}
+
+void InstallService::WithdrawSeed_(const std::string& identifier) {
+	if (_seeding == nullptr) {
+		return;
+	}
+
+	const bool stopped = _seeding->StopSeeding(identifier);
+	(void)stopped;
+}
+
+std::string_view InstallService::DescribeRefusal_(
+	const domain::FetchError refusal,
+	const std::string_view fallback
+) {
+	if (refusal == domain::FetchError::AlreadyPresent) {
+		return text::INSTALL_SEED_CONFLICT;
+	}
+
+	return fallback;
+}
+
 domain::InstallProgress InstallService::Progress() const {
 	const std::scoped_lock lock(_guard);
 	return _progress;
@@ -157,17 +106,14 @@ std::uint64_t InstallService::CompletedInstalls() const {
 	return _completed.load();
 }
 
-std::expected<void, domain::InstallStartError> InstallService::Verify(const std::string_view identifier) {
-	if (_busy) {
-		return std::unexpected(domain::InstallStartError::Busy);
-	}
+std::uint64_t InstallService::SettledAttempts() const {
+	return _settled.load();
+}
 
-	const auto announce = _receiver->Retained(std::string(identifier));
-	if (!announce.has_value()) {
-		return std::unexpected(domain::InstallStartError::UnknownIdentifier);
-	}
-
-	const auto sealed = _store->Load(announce->manifestDigest.ToHex());
+std::expected<domain::ModManifest, domain::InstallStartError> InstallService::DecodeStoredManifest_(
+	const std::string& digestHex
+) const {
+	const auto sealed = _store->Load(digestHex);
 	if (!sealed.has_value()) {
 		return std::unexpected(domain::InstallStartError::ManifestMissing);
 	}
@@ -180,6 +126,24 @@ std::expected<void, domain::InstallStartError> InstallService::Verify(const std:
 	const auto decoded = _codec->Decode(authenticated->payload);
 	if (!decoded.has_value()) {
 		return std::unexpected(domain::InstallStartError::ManifestRejected);
+	}
+
+	return *decoded;
+}
+
+std::expected<void, domain::InstallStartError> InstallService::Verify(const std::string_view identifier) {
+	if (_busy) {
+		return std::unexpected(domain::InstallStartError::Busy);
+	}
+
+	const auto announce = _receiver->Retained(std::string(identifier));
+	if (!announce.has_value()) {
+		return std::unexpected(domain::InstallStartError::UnknownIdentifier);
+	}
+
+	const auto decoded = DecodeStoredManifest_(announce->manifestDigest.ToHex());
+	if (!decoded.has_value()) {
+		return std::unexpected(decoded.error());
 	}
 
 	bool expected = false;
@@ -223,68 +187,29 @@ void InstallService::RunVerify_() {
 
 	std::error_code failure;
 	if (!std::filesystem::is_directory(modFolder, failure)) {
-		Publish_(domain::InstallPhase::Failed, std::string(text::VERIFY_FOLDER_MISSING));
-		_busy = false;
+		Conclude_(domain::InstallPhase::Failed, std::string(text::VERIFY_FOLDER_MISSING));
 		return;
 	}
 
-	std::uint64_t verified = 0;
-	std::size_t damaged = 0;
+	const InstalledContentAuditor auditor(*_hasher);
 
-	std::vector<domain::FilePlan> files;
-	files.reserve(target.Files().size());
-
-	for (const domain::ManifestFile& file : target.Files()) {
-		const auto mapped = MappedFile::Open(modFolder / file.path);
-
-		const bool readable = mapped.has_value() && mapped->Size() == file.size;
-
-		const std::span<const std::byte> content = readable
-		                                           ? mapped->Data()
-		                                           : std::span<const std::byte>();
-
-		std::vector<domain::ChunkPlacement> placements;
-		placements.reserve(file.chunks.size());
-
-		for (const domain::ManifestChunk& chunk : file.chunks) {
-			const bool present = readable
-			                     && chunk.offset + chunk.length <= content.size()
-			                     && _hasher->Hash(content.subspan(chunk.offset, chunk.length)) == chunk.digest;
-
-			if (present) {
-				verified += chunk.length;
-
-				const std::scoped_lock lock(_guard);
-				_progress.fetchedBytes = verified;
-			} else {
-				++damaged;
-			}
-
-			placements.push_back(domain::ChunkPlacement{
-					chunk.digest,
-					chunk.offset,
-					chunk.length,
-					present ? domain::ChunkSourceKind::Held : domain::ChunkSourceKind::Remote,
-					present ? file.path : std::string(),
-					present ? chunk.offset : 0
-				}
-			);
+	InstalledContentAuditor::Audit audit = auditor.Examine(
+		target,
+		modFolder,
+		[this](const std::uint64_t verifiedBytes) {
+			const std::scoped_lock lock(_guard);
+			_progress.fetchedBytes = verifiedBytes;
 		}
+	);
 
-		files.push_back(domain::FilePlan{file.path, file.size, std::move(placements)});
-	}
-
-	if (damaged == 0) {
-		Publish_(domain::InstallPhase::Done, std::string(text::VERIFY_INTACT));
-		_busy = false;
+	if (audit.damagedChunks == 0) {
+		Conclude_(domain::InstallPhase::Done, std::string(text::VERIFY_INTACT));
 		return;
 	}
 
 	Publish_(domain::InstallPhase::Planning, std::string(text::VERIFY_REPAIRING));
 
-	StartFetch_(target, domain::InstallPlan(std::move(files), {}));
-	return;
-	_busy = false;
+	StartFetch_(target, domain::InstallPlan(std::move(audit.damagedFiles), {}));
 }
 
 std::expected<void, domain::InstallStartError> InstallService::Start(std::string_view identifier) {
@@ -302,19 +227,9 @@ std::expected<void, domain::InstallStartError> InstallService::Start(std::string
 	domain::ModManifest manifest;
 
 	if (held) {
-		const auto sealed = _store->Load(announce->manifestDigest.ToHex());
-		if (!sealed.has_value()) {
-			return std::unexpected(domain::InstallStartError::ManifestMissing);
-		}
-
-		const auto authenticated = _authenticator->Authenticate(*sealed);
-		if (!authenticated.has_value()) {
-			return std::unexpected(domain::InstallStartError::ManifestRejected);
-		}
-
-		const auto decoded = _codec->Decode(authenticated->payload);
+		const auto decoded = DecodeStoredManifest_(announce->manifestDigest.ToHex());
 		if (!decoded.has_value()) {
-			return std::unexpected(domain::InstallStartError::ManifestRejected);
+			return std::unexpected(decoded.error());
 		}
 
 		manifest = *decoded;
@@ -376,8 +291,10 @@ void InstallService::BeginManifestFetch_() {
 	);
 
 	if (!begun.has_value()) {
-		Publish_(domain::InstallPhase::Failed, std::string(text::INSTALL_MANIFEST_REFUSED));
-		_busy = false;
+		Conclude_(
+			domain::InstallPhase::Failed,
+			std::string(DescribeRefusal_(begun.error(), text::INSTALL_MANIFEST_REFUSED))
+		);
 		return;
 	}
 
@@ -395,53 +312,16 @@ bool InstallService::AdoptFetchedManifest_() {
 	const std::filesystem::path staged =
 			StagingRoot_() / announce.TorrentName() / std::string(domain::ChunkFileNaming::MANIFEST_FILE);
 
-	std::ifstream input(staged, std::ios::binary);
-	if (!input) {
-		return false;
-	}
+	const FetchedManifestAdopter adopter(*_hasher, *_authenticator, *_codec, *_store);
 
-	std::vector<std::uint8_t> sealed;
-	sealed.assign(
-		std::istreambuf_iterator<char>(input),
-		std::istreambuf_iterator<char>()
-	);
-
-	if (sealed.empty()) {
-		return false;
-	}
-
-	std::vector<std::byte> raw;
-	raw.reserve(sealed.size());
-	for (const std::uint8_t value : sealed) {
-		raw.push_back(static_cast<std::byte>(value));
-	}
-
-	if (_hasher->Hash(raw) != announce.manifestDigest) {
-		return false;
-	}
-
-	const auto authenticated = _authenticator->Authenticate(sealed);
-	if (!authenticated.has_value()) {
-		return false;
-	}
-
-	const auto decoded = _codec->Decode(authenticated->payload);
-	if (!decoded.has_value()) {
-		return false;
-	}
-
-	if (decoded->Identifier() != announce.Identifier()
-	    || decoded->Version() != announce.version) {
-		return false;
-	}
-
-	if (!_store->Save(announce.manifestDigest.ToHex(), sealed).has_value()) {
+	const auto adopted = adopter.Adopt(announce, staged);
+	if (!adopted.has_value()) {
 		return false;
 	}
 
 	{
 		const std::scoped_lock lock(_guard);
-		_target = *decoded;
+		_target = *adopted;
 		_awaitingManifest = false;
 	}
 
@@ -483,37 +363,15 @@ void InstallService::StartFetch_(
 ) {
 	const std::filesystem::path modFolder = _modsDirectory / target.ModName();
 
-	std::set<std::string> seen;
-	std::vector<std::string> wanted;
-	std::vector<domain::ChunkDestination> destinations;
+	WithdrawSeed_(target.Identifier());
 
-	bool resumed = false;
+	const FetchPlanner planner(*_hasher);
 
-	for (const domain::FilePlan& file : plan.Files()) {
-		const std::filesystem::path staged = StagedPathFor_(modFolder, file.path);
+	const auto request = planner.Stage(plan, modFolder, ContentInstaller::STAGING_SUFFIX);
 
-		if (!SeedFile_(modFolder / file.path, staged, file.size, resumed)) {
-			Publish_(domain::InstallPhase::Failed, std::string(text::INSTALL_FOLDER_UNWRITABLE));
-			_busy = false;
-			return;
-		}
-
-		for (const domain::ChunkPlacement& placement : file.placements) {
-			if (placement.source != domain::ChunkSourceKind::Remote) {
-				continue;
-			}
-
-			const std::string chunkFileName = domain::ChunkFileNaming::FileNameFor(placement.digest);
-
-			if (seen.insert(placement.digest.ToHex()).second) {
-				wanted.push_back(chunkFileName);
-			}
-
-			destinations.push_back(domain::ChunkDestination{
-					chunkFileName, staged, placement.targetOffset, placement.length
-				}
-			);
-		}
+	if (!request.has_value()) {
+		Conclude_(domain::InstallPhase::Failed, std::string(text::INSTALL_FOLDER_UNWRITABLE));
+		return;
 	}
 
 	{
@@ -525,7 +383,7 @@ void InstallService::StartFetch_(
 		_progress.remoteChunks = plan.RemoteChunkCount();
 	}
 
-	if (wanted.empty()) {
+	if (request->wantedFiles.empty()) {
 		Publish_(domain::InstallPhase::Installing, std::string(text::INSTALL_FROM_HELD));
 		RunInstall_();
 		return;
@@ -535,14 +393,16 @@ void InstallService::StartFetch_(
 		target.Identifier(),
 		_announce.torrentInfoHash,
 		StagingRoot_(),
-		wanted,
-		destinations,
-		resumed
+		request->wantedFiles,
+		request->destinations,
+		request->resumed
 	);
 
 	if (!begun.has_value()) {
-		Publish_(domain::InstallPhase::Failed, std::string(text::INSTALL_FETCH_REFUSED));
-		_busy = false;
+		Conclude_(
+			domain::InstallPhase::Failed,
+			std::string(DescribeRefusal_(begun.error(), text::INSTALL_FETCH_REFUSED))
+		);
 		return;
 	}
 
@@ -567,8 +427,7 @@ void InstallService::RunInstall_() {
 	const auto report = _installer.ApplyPlaced(plan, modFolder, source);
 
 	if (!report.has_value()) {
-		Publish_(domain::InstallPhase::Failed, std::string(DescribeInstall(report.error())));
-		_busy = false;
+		Conclude_(domain::InstallPhase::Failed, std::string(DescribeInstallError(report.error())));
 		return;
 	}
 
@@ -589,6 +448,14 @@ void InstallService::RunInstall_() {
 
 	(void)recorded;
 
+	if (_seeding != nullptr) {
+		_seeding->AttestContent(
+			target,
+			modFolder,
+			_store->PathFor(announce.manifestDigest.ToHex())
+		);
+	}
+
 	{
 		const std::scoped_lock lock(_guard);
 		_progress.fetchedBytes = report->remoteBytes;
@@ -598,17 +465,14 @@ void InstallService::RunInstall_() {
 
 	++_completed;
 
-	Publish_(domain::InstallPhase::Done, std::string(text::INSTALLED_PREFIX) + target.ModName());
-	_busy = false;
+	Conclude_(domain::InstallPhase::Done, std::string(text::INSTALLED_PREFIX) + target.ModName());
 }
 
 void InstallService::Poll() {
-	domain::InstallPhase phase = domain::InstallPhase::Idle;
-
-	{
+	const domain::InstallPhase phase = [this]() {
 		const std::scoped_lock lock(_guard);
-		phase = _progress.phase;
-	}
+		return _progress.phase;
+	}();
 
 	if (phase != domain::InstallPhase::Fetching) {
 		return;
@@ -626,8 +490,7 @@ void InstallService::Poll() {
 	}
 
 	if (status.phase == domain::FetchPhase::Failed) {
-		Publish_(domain::InstallPhase::Failed, std::string(text::INSTALL_FETCH_FAILED));
-		_busy = false;
+		Conclude_(domain::InstallPhase::Failed, std::string(text::INSTALL_FETCH_FAILED));
 		return;
 	}
 
@@ -635,18 +498,15 @@ void InstallService::Poll() {
 		return;
 	}
 
-	bool awaitingManifest = false;
-
-	{
+	const bool awaitingManifest = [this]() {
 		const std::scoped_lock lock(_guard);
-		awaitingManifest = _awaitingManifest;
-	}
+		return _awaitingManifest;
+	}();
 
 	if (awaitingManifest) {
 		if (!AdoptFetchedManifest_()) {
-			Publish_(domain::InstallPhase::Failed, std::string(text::INSTALL_MANIFEST_REJECTED));
 			_fetcher->Cancel();
-			_busy = false;
+			Conclude_(domain::InstallPhase::Failed, std::string(text::INSTALL_MANIFEST_REJECTED));
 			return;
 		}
 
@@ -681,7 +541,12 @@ void InstallService::Cancel() {
 
 	JoinWorker_();
 
+	const bool wasBusy = _busy.exchange(false);
+
 	Publish_(domain::InstallPhase::Idle, std::string(text::INSTALL_CANCELLED));
-	_busy = false;
+
+	if (wasBusy) {
+		++_settled;
+	}
 }
 }

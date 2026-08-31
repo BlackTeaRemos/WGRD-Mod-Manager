@@ -1,6 +1,7 @@
 #pragma once
 
 #include "downloader/storage/ChunkLocator.h"
+#include "downloader/storage/SeedAttestations.h"
 #include "downloader/storage/StorageFaults.h"
 
 #include <libtorrent/session_params.hpp>
@@ -56,17 +57,21 @@ public:
 
 	[[nodiscard]] const std::vector<std::string>& Messages() const;
 
+	[[nodiscard]] const std::string& ListenFailure() const;
+
 private:
 	void DrainAlerts_();
 
 	void AwaitListener_();
 
+	StorageFaults _faults;
+	SeedAttestations _attestations;
 	std::unique_ptr<libtorrent::session> _session;
 	std::unique_ptr<libtorrent::torrent_handle> _handle;
 	std::filesystem::path _savePath;
 	std::uint16_t _listenPort;
-	StorageFaults _faults;
 	bool _cacheFlushed;
+	std::string _listenFailure;
 	std::vector<std::string> _messages;
 };
 }

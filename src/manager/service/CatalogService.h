@@ -39,7 +39,7 @@ public:
 	[[nodiscard]] bool Verified(std::string_view folder) const override;
 
 private:
-	void Seed_(const domain::SignedAnnounce& announce, const domain::CatalogRow& row);
+	void Seed_(const domain::SignedAnnounce& announce, domain::CatalogRow& row);
 
 	[[nodiscard]] std::vector<std::string> CollectVerified_() const;
 

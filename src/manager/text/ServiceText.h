@@ -94,7 +94,10 @@ constexpr std::string_view INSTALL_REMOTE_CORRUPT = "fetched chunk corrupt";
 constexpr std::string_view INSTALL_WRITE_FAILED = "install write failed";
 constexpr std::string_view INSTALL_SWAP_FAILED = "install swap failed";
 constexpr std::string_view INSTALL_CANCELLED = "cancelled";
+constexpr std::string_view INSTALL_SEED_CONFLICT = "seed conflict refused fetch";
 constexpr std::string_view INSTALLED_PREFIX = "installed ";
+
+constexpr std::string_view SEED_INFOHASH_MISMATCH = "seed infohash mismatch";
 
 constexpr std::string_view VERIFY_CHECKING = "checking installed chunks";
 constexpr std::string_view VERIFY_FOLDER_MISSING = "mod folder missing";

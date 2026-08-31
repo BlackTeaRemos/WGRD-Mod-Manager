@@ -14,12 +14,7 @@ namespace {
 	constexpr float CONTROL_WIDTH = 24.0f;
 	constexpr float SETTINGS_PADDING = 8.0f;
 
-	struct ControlResult {
-		bool clicked;
-		float left;
-	};
-
-	ControlResult DrawControl(const ImVec2 topLeft, const float width, const std::string_view glyph) {
+	bool DrawControl(const ImVec2 topLeft, const float width, const std::string_view glyph) {
 		const ImVec2 bottomRight(topLeft.x + width, topLeft.y + tokens::TITLE_BAR_HEIGHT);
 
 		bool hovered = false;
@@ -47,7 +42,7 @@ namespace {
 			11.0f
 		);
 
-		return ControlResult{clicked, topLeft.x};
+		return clicked;
 	}
 }
 
@@ -90,23 +85,23 @@ void TitleBar::Draw(
 	float cursor = bottomRight.x;
 
 	cursor -= CONTROL_WIDTH;
-	if (DrawControl(ImVec2(cursor, origin.y), CONTROL_WIDTH, text::shell::CLOSE_GLYPH).clicked) {
+	if (DrawControl(ImVec2(cursor, origin.y), CONTROL_WIDTH, text::shell::CLOSE_GLYPH)) {
 		state.RequestExit();
 	}
 
 	cursor -= CONTROL_WIDTH;
-	if (DrawControl(ImVec2(cursor, origin.y), CONTROL_WIDTH, text::shell::MAXIMISE_GLYPH).clicked) {
+	if (DrawControl(ImVec2(cursor, origin.y), CONTROL_WIDTH, text::shell::MAXIMISE_GLYPH)) {
 		window.ToggleMaximize();
 	}
 
 	cursor -= CONTROL_WIDTH;
-	if (DrawControl(ImVec2(cursor, origin.y), CONTROL_WIDTH, text::shell::MINIMISE_GLYPH).clicked) {
+	if (DrawControl(ImVec2(cursor, origin.y), CONTROL_WIDTH, text::shell::MINIMISE_GLYPH)) {
 		window.Minimize();
 	}
 
 	const float settingsWidth = design::MeasureText(text::shell::SETTINGS, 10.0f).x + SETTINGS_PADDING * 2.0f;
 	cursor -= settingsWidth;
-	if (DrawControl(ImVec2(cursor, origin.y), settingsWidth, text::shell::SETTINGS).clicked) {
+	if (DrawControl(ImVec2(cursor, origin.y), settingsWidth, text::shell::SETTINGS)) {
 		state.OpenSettings();
 	}
 

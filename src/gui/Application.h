@@ -42,6 +42,7 @@ private:
 	Modals _modals;
 	ApplicationServices _services;
 	std::uint64_t _seenInstalls = 0;
+	std::uint64_t _seenSettled = 0;
 	bool _started = false;
 };
 }

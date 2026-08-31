@@ -24,7 +24,7 @@ public:
 
 	void Register(const domain::ModManifest& manifest, const std::filesystem::path& modFolder);
 
-	void RegisterFile(
+	bool RegisterFile(
 		std::string fileName,
 		const std::filesystem::path& file,
 		std::uint64_t offset,
@@ -37,7 +37,7 @@ public:
 
 	[[nodiscard]] std::size_t Count() const;
 
-	void RegisterDestination(
+	bool RegisterDestination(
 		std::string fileName,
 		const std::filesystem::path& file,
 		std::uint64_t offset,

@@ -30,5 +30,10 @@ private:
 	using HeldChunkIndex = std::map<std::string, HeldChunk>;
 
 	[[nodiscard]] static HeldChunkIndex IndexHeldChunks_(const domain::ModManifest& held);
+
+	[[nodiscard]] static bool FileUnchanged_(
+		const domain::ModManifest& held,
+		const domain::ManifestFile& file
+	);
 };
 }

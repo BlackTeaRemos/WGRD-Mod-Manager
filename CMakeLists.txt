@@ -1,7 +1,7 @@
 ﻿cmake_minimum_required(VERSION 3.28)
 
 project(WgrdModManager
-    VERSION 0.5.3
+    VERSION 0.6.0
     DESCRIPTION "Mod manager for Wargame Red Dragon"
     LANGUAGES CXX
 )

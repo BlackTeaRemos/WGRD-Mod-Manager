@@ -17,5 +17,9 @@
         ProfileTests.cpp
         UpdateTests.cpp
         InstallServiceTests.cpp
+        InstallSeedingCoordinationTests.cpp
+        ManifestDifferTests.cpp
+        StagedFileSeederTests.cpp
+        CatalogSeedingTests.cpp
         ModRemovalTests.cpp
 )

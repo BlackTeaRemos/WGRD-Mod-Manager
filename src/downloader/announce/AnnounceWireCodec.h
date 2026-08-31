@@ -24,6 +24,9 @@ public:
 	static constexpr std::size_t WANT_ENTRY_BYTES = FINGERPRINT_BYTES + MOD_NAME_BYTES;
 
 	static constexpr std::size_t RECORD_BYTES = 220;
+	static constexpr std::size_t RECORD_FINGERPRINT_OFFSET = 12;
+	static constexpr std::size_t RECORD_MOD_NAME_OFFSET = 20;
+	static constexpr std::size_t RECORD_VERSION_OFFSET = 84;
 
 	static constexpr std::size_t MAXIMUM_ENTRIES = 64;
 	static constexpr std::size_t MAXIMUM_MESSAGE_BYTES = 8192;
@@ -57,6 +60,10 @@ public:
 
 	[[nodiscard]] static std::optional<std::vector<std::uint8_t>> DecodeRecord(
 		std::span<const std::uint8_t> message
+	);
+
+	[[nodiscard]] static std::optional<domain::AnnounceSummary> RecordSummary(
+		std::span<const std::uint8_t> record
 	);
 
 private:

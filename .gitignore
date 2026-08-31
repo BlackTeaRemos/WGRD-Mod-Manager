@@ -8,6 +8,7 @@ CMakeUserPresets.json
 /build/
 out/
 .cache/
+inspect.xml
 
 vcpkg_installed/
 

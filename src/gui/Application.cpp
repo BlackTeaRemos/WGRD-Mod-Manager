@@ -95,14 +95,19 @@ int Application::Run() {
 
 void Application::AdoptFinishedInstalls_() {
 	const std::uint64_t completed = _services.install->CompletedInstalls();
+	const std::uint64_t settled = _services.install->SettledAttempts();
 
-	if (completed == _seenInstalls) {
+	const bool newlyInstalled = completed != _seenInstalls;
+	const bool newlySettled = settled != _seenSettled;
+
+	if (!newlyInstalled && !newlySettled) {
 		return;
 	}
 
 	_seenInstalls = completed;
+	_seenSettled = settled;
 
-	if (_services.order != nullptr) {
+	if (newlyInstalled && _services.order != nullptr) {
 		_services.order->Refresh();
 	}
 
@@ -110,7 +115,7 @@ void Application::AdoptFinishedInstalls_() {
 		_services.catalog->Refresh();
 	}
 
-	if (_services.profiles != nullptr) {
+	if (newlyInstalled && _services.profiles != nullptr) {
 		_services.profiles->Refresh();
 	}
 }

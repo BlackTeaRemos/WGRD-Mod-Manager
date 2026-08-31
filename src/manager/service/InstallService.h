@@ -4,6 +4,7 @@
 #include "domain/interfaces/content/IManifestBuilder.h"
 #include "domain/interfaces/content/IManifestCodec.h"
 #include "domain/interfaces/services/IInstallService.h"
+#include "domain/interfaces/services/ISeedingService.h"
 #include "domain/interfaces/trust/IManifestAuthenticator.h"
 #include "domain/types/content/ModManifest.h"
 #include "domain/types/distribution/InstallPlan.h"
@@ -36,7 +37,8 @@ public:
 		const domain::IManifestBuilder& manifestBuilder,
 		const domain::IContentHasher& hasher,
 		domain::IChunkFetcher& fetcher,
-		const InstalledReleaseStore& installed
+		const InstalledReleaseStore& installed,
+		domain::ISeedingService* seeding
 	);
 
 	InstallService(const InstallService&) = delete;
@@ -57,6 +59,8 @@ public:
 
 	[[nodiscard]] std::uint64_t CompletedInstalls() const override;
 
+	[[nodiscard]] std::uint64_t SettledAttempts() const override;
+
 	void Poll() override;
 
 	void Cancel() override;
@@ -76,7 +80,20 @@ private:
 
 	void StartFetch_(const domain::ModManifest& target, const domain::InstallPlan& plan);
 
+	[[nodiscard]] std::expected<domain::ModManifest, domain::InstallStartError> DecodeStoredManifest_(
+		const std::string& digestHex
+	) const;
+
 	void Publish_(domain::InstallPhase phase, std::string message);
+
+	void Conclude_(domain::InstallPhase phase, std::string message);
+
+	void WithdrawSeed_(const std::string& identifier);
+
+	[[nodiscard]] static std::string_view DescribeRefusal_(
+		domain::FetchError refusal,
+		std::string_view fallback
+	);
 
 	[[nodiscard]] std::filesystem::path StagingRoot_() const;
 
@@ -89,6 +106,7 @@ private:
 	const domain::IManifestBuilder* _manifestBuilder;
 	domain::IChunkFetcher* _fetcher;
 	const InstalledReleaseStore* _installed;
+	domain::ISeedingService* _seeding;
 
 	const domain::IContentHasher* _hasher;
 	ManifestDiffer _differ;
@@ -104,5 +122,6 @@ private:
 	std::thread _worker;
 	std::atomic<bool> _busy;
 	std::atomic<std::uint64_t> _completed;
+	std::atomic<std::uint64_t> _settled;
 };
 }

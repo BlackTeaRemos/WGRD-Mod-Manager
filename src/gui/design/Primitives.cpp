@@ -7,7 +7,6 @@
 
 namespace wgrd::gui::design {
 namespace {
-	constexpr float BASE_FONT_SIZE = 13.0f;
 	constexpr float CHECKBOX_SIZE = 13.0f;
 
 	bool reservedActive = false;

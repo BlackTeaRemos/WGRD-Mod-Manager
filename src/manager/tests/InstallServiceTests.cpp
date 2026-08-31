@@ -1,4 +1,6 @@
-﻿#include "manager/announce/AnnounceCodec.h"
+#include "manager/tests/InstallServiceTestSupport.h"
+
+#include "manager/announce/AnnounceCodec.h"
 #include "manager/hash/Blake3Hasher.h"
 #include "manager/install/InstalledReleaseStore.h"
 #include "manager/manifest/ManifestBuilder.h"
@@ -42,203 +44,14 @@ using wgrd::manager::ManifestCodec;
 using wgrd::manager::PayloadPathPolicy;
 using wgrd::manager::PublishService;
 
-namespace {
-constexpr std::size_t CHUNK_LENGTH = 2048;
-
-class FixedSizeChunker final : public IContentChunker {
-public:
-	~FixedSizeChunker() override = default;
-
-	[[nodiscard]] std::vector<ChunkSpan> Split(const std::span<const std::byte> data) const override {
-		std::vector<ChunkSpan> spans;
-
-		std::size_t offset = 0;
-		while (offset < data.size()) {
-			const std::size_t length = std::min(CHUNK_LENGTH, data.size() - offset);
-			spans.push_back(ChunkSpan{offset, length});
-			offset += length;
-		}
-
-		return spans;
-	}
-};
-
-
-class StubTorrentBuilder final : public wgrd::domain::IChunkSetTorrentBuilder {
-public:
-	~StubTorrentBuilder() override = default;
-
-	[[nodiscard]] std::expected<wgrd::domain::ChunkSetTorrentDescription, wgrd::domain::ChunkSetTorrentError> Build(
-		const ModManifest& manifest,
-		const std::filesystem::path&,
-		std::span<const std::uint8_t>
-	) const override {
-		const auto infoHash = ChunkDigest::FromHex(std::string(64, 'a'));
-		REQUIRE(infoHash.has_value());
-
-		return wgrd::domain::ChunkSetTorrentDescription{
-			{'d', 'e'}, *infoHash, manifest.TotalBytes(), manifest.ChunkCount()
-		};
-	}
-};
-
-class CopyingFetcher final : public IChunkFetcher {
-public:
-	CopyingFetcher(
-		const ModManifest& manifest,
-		std::filesystem::path sourceFolder,
-		std::filesystem::path sealedManifestPath = {}
-	)
-		: _manifest(manifest)
-		, _sourceFolder(std::move(sourceFolder))
-		, _sealedManifestPath(std::move(sealedManifestPath))
-		, _status() {}
-
-	~CopyingFetcher() override = default;
-
-	[[nodiscard]] std::expected<void, wgrd::domain::FetchError> Begin(
-		std::string identifier,
-		const ChunkDigest&,
-		const std::filesystem::path& stagingFolder,
-		const std::vector<std::string>& wantedFiles,
-		const std::vector<wgrd::domain::ChunkDestination>& destinations,
-		bool
-	) override {
-		const std::filesystem::path target = stagingFolder / _manifest.TorrentName();
-
-		std::error_code failure;
-		std::filesystem::create_directories(target, failure);
-
-		for (const std::string& wantedName : wantedFiles) {
-			if (wantedName != ChunkFileNaming::MANIFEST_FILE) {
-				continue;
-			}
-
-			std::filesystem::copy_file(
-				_sealedManifestPath,
-				target / wantedName,
-				std::filesystem::copy_options::overwrite_existing,
-				failure
-			);
-
-			++_served;
-		}
-
-		for (const wgrd::domain::ChunkDestination& destination : destinations) {
-			for (const auto& file : _manifest.Files()) {
-				for (const auto& chunk : file.chunks) {
-					if (ChunkFileNaming::FileNameFor(chunk.digest) != destination.chunkFileName) {
-						continue;
-					}
-
-					std::ifstream input(_sourceFolder / file.path, std::ios::binary);
-					input.seekg(static_cast<std::streamoff>(chunk.offset));
-
-					std::vector<char> bytes(chunk.length);
-					input.read(bytes.data(), chunk.length);
-
-					std::fstream output(
-						destination.file,
-						std::ios::binary | std::ios::in | std::ios::out
-					);
-
-					output.seekp(static_cast<std::streamoff>(destination.offset));
-					output.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
-
-					++_served;
-				}
-			}
-		}
-
-		_status.phase = wgrd::domain::FetchPhase::Complete;
-		_status.identifier = std::move(identifier);
-		_status.stagingFolder = stagingFolder;
-
-		return {};
-	}
-
-	[[nodiscard]] wgrd::domain::FetchStatus Fetch() const override {
-		return _status;
-	}
-
-	void Cancel() override {
-		_status = wgrd::domain::FetchStatus{};
-	}
-
-	[[nodiscard]] std::size_t Served() const {
-		return _served;
-	}
-
-private:
-	ModManifest _manifest;
-	std::filesystem::path _sourceFolder;
-	std::filesystem::path _sealedManifestPath;
-	wgrd::domain::FetchStatus _status;
-	std::size_t _served = 0;
-};
-
-class TemporaryTree {
-public:
-	explicit TemporaryTree(const std::string_view label) {
-		_root = std::filesystem::temp_directory_path() / "wgrd-install" / label;
-
-		std::error_code failure;
-		std::filesystem::remove_all(_root, failure);
-		std::filesystem::create_directories(_root, failure);
-	}
-
-	~TemporaryTree() {
-		std::error_code failure;
-		std::filesystem::remove_all(_root, failure);
-	}
-
-	[[nodiscard]] const std::filesystem::path& Root() const {
-		return _root;
-	}
-
-private:
-	std::filesystem::path _root;
-};
-
-void WritePayload(const std::filesystem::path& target, const std::uint64_t bytes, const std::uint8_t seed) {
-	std::error_code failure;
-	std::filesystem::create_directories(target.parent_path(), failure);
-
-	std::ofstream output(target, std::ios::binary | std::ios::trunc);
-	for (std::uint64_t position = 0; position < bytes; ++position) {
-		output.put(static_cast<char>(((position * 13) ^ (position >> 8) ^ seed) & 0xFF));
-	}
-}
-
-std::vector<char> ReadAll(const std::filesystem::path& source) {
-	std::ifstream input(source, std::ios::binary);
-	return std::vector<char>(
-		std::istreambuf_iterator<char>(input),
-		std::istreambuf_iterator<char>()
-	);
-}
-
-bool AwaitPhase(InstallService& service, const InstallPhase phase, const std::chrono::milliseconds timeout) {
-	const auto deadline = std::chrono::steady_clock::now() + timeout;
-
-	while (std::chrono::steady_clock::now() < deadline) {
-		service.Poll();
-
-		const InstallPhase current = service.Progress().phase;
-		if (current == phase) {
-			return true;
-		}
-
-		if (current == InstallPhase::Failed) {
-			return false;
-		}
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
-	}
-
-	return false;
-}
-}
+using wgrd::manager::tests::AwaitPhase;
+using wgrd::manager::tests::CHUNK_LENGTH;
+using wgrd::manager::tests::CopyingFetcher;
+using wgrd::manager::tests::FixedSizeChunker;
+using wgrd::manager::tests::ReadAll;
+using wgrd::manager::tests::StubTorrentBuilder;
+using wgrd::manager::tests::TemporaryTree;
+using wgrd::manager::tests::WritePayload;
 
 TEST_CASE("install fetches a published mod into the mods folder") {
 	const TemporaryTree publisher("publisher");
@@ -307,7 +120,8 @@ TEST_CASE("install fetches a published mod into the mods folder") {
 		manifestBuilder,
 		hasher,
 		fetcher,
-		installedStore
+		installedStore,
+		nullptr
 	);
 
 	REQUIRE(installService.CompletedInstalls() == 0);
@@ -466,7 +280,12 @@ TEST_CASE("reinstalling an unchanged mod fetches nothing") {
 		manifestBuilder,
 		hasher,
 		fetcher,
-		installedStore
+		installedStore,
+		nullptr
+	);
+
+	const auto payloadStampBefore = std::filesystem::last_write_time(
+		publisherMods / "angel_maps" / "packs" / "ZZ_Win.dat"
 	);
 
 	REQUIRE(installService.Start(published->identifier).has_value());
@@ -474,7 +293,30 @@ TEST_CASE("reinstalling an unchanged mod fetches nothing") {
 
 	REQUIRE(installService.Progress().remoteChunks == 0);
 	REQUIRE(fetcher.Served() == 0);
-	REQUIRE(installService.Progress().heldBytes == manifest->TotalBytes());
+	REQUIRE(installService.Progress().heldBytes == 0);
+
+	REQUIRE(std::filesystem::last_write_time(
+			publisherMods / "angel_maps" / "packs" / "ZZ_Win.dat"
+		) == payloadStampBefore
+	);
+
+	std::size_t stagedTwins = 0;
+
+	std::error_code walking;
+	std::filesystem::recursive_directory_iterator walker(publisherMods, walking);
+	const std::filesystem::recursive_directory_iterator walkEnd;
+
+	for (; walker != walkEnd; walker.increment(walking)) {
+		if (walking) {
+			break;
+		}
+
+		if (walker->path().filename().string().ends_with(ContentInstaller::STAGING_SUFFIX)) {
+			++stagedTwins;
+		}
+	}
+
+	REQUIRE(stagedTwins == 0);
 }
 
 TEST_CASE("install pulls the manifest when only the announce is known") {
@@ -556,7 +398,8 @@ TEST_CASE("install pulls the manifest when only the announce is known") {
 		manifestBuilder,
 		hasher,
 		fetcher,
-		installedStore
+		installedStore,
+		nullptr
 	);
 
 	REQUIRE(installService.Start(published->identifier).has_value());

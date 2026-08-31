@@ -3,10 +3,6 @@
 #include "downloader/announce/AnnounceWireCodec.h"
 
 namespace wgrd::downloader {
-namespace {
-	constexpr std::size_t MAXIMUM_TRACKED_PEERS = 512;
-}
-
 AnnounceExchange::AnnounceExchange(
 	domain::IAnnounceCatalogue& catalogue,
 	domain::IAnnounceReceiver& receiver
@@ -81,14 +77,62 @@ bool AnnounceExchange::PeerBlocked(const std::string& peer) const {
 	return known->second.Blocked(PeerAnnounceBudget::Clock::now());
 }
 
+PeerAnnounceBudget* AnnounceExchange::EnsureBudget_(
+	const std::string& peer,
+	const PeerAnnounceBudget::Clock::time_point now
+) {
+	const auto known = _budgets.find(peer);
+	if (known != _budgets.end()) {
+		return &known->second;
+	}
+
+	if (_budgets.size() >= MAXIMUM_TRACKED_PEERS) {
+		auto victim = _budgets.end();
+
+		for (auto candidate = _budgets.begin(); candidate != _budgets.end(); ++candidate) {
+			if (candidate->second.Blocked(now)) {
+				continue;
+			}
+
+			if (victim == _budgets.end()) {
+				victim = candidate;
+				continue;
+			}
+
+			const bool candidateClean = !candidate->second.Escalated();
+			const bool victimClean = !victim->second.Escalated();
+
+			if (candidateClean != victimClean) {
+				if (candidateClean) {
+					victim = candidate;
+				}
+				continue;
+			}
+
+			if (candidate->second.LastSeen() < victim->second.LastSeen()) {
+				victim = candidate;
+			}
+		}
+
+		if (victim == _budgets.end()) {
+			return nullptr;
+		}
+
+		_budgets.erase(victim);
+	}
+
+	return &_budgets[peer];
+}
+
 void AnnounceExchange::Penalise(const std::string& peer) {
 	const std::scoped_lock lock(_guard);
 
-	if (_budgets.size() >= MAXIMUM_TRACKED_PEERS && !_budgets.contains(peer)) {
-		_budgets.erase(_budgets.begin());
-	}
+	const auto now = PeerAnnounceBudget::Clock::now();
 
-	_budgets[peer].Penalise(PeerAnnounceBudget::Clock::now());
+	PeerAnnounceBudget* budget = EnsureBudget_(peer, now);
+	if (budget != nullptr) {
+		budget->Penalise(now);
+	}
 
 	++_status.protocolViolations;
 }
@@ -98,13 +142,15 @@ bool AnnounceExchange::Ingest(const std::string& peer, const std::span<const std
 
 	++_status.recordsReceived;
 
-	if (_budgets.size() >= MAXIMUM_TRACKED_PEERS && !_budgets.contains(peer)) {
-		_budgets.erase(_budgets.begin());
+	const auto now = PeerAnnounceBudget::Clock::now();
+
+	PeerAnnounceBudget* budget = EnsureBudget_(peer, now);
+	if (budget == nullptr) {
+		++_status.peersThrottled;
+		return false;
 	}
 
-	PeerAnnounceBudget& budget = _budgets[peer];
-
-	if (!budget.Consume(PeerAnnounceBudget::Clock::now())) {
+	if (!budget->Consume(now)) {
 		++_status.peersThrottled;
 		return false;
 	}

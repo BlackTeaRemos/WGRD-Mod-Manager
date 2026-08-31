@@ -2,12 +2,12 @@
 
 #include "domain/types/distribution/AnnounceSummary.h"
 #include "downloader/announce/AnnounceExchange.h"
+#include "downloader/announce/OutstandingWantTracker.h"
 
 #include <libtorrent/extensions.hpp>
 #include <libtorrent/peer_connection_handle.hpp>
 
 #include <chrono>
-#include <set>
 #include <string>
 #include <vector>
 
@@ -49,13 +49,15 @@ private:
 
 	void HandleRecord_(libtorrent::span<const char> body);
 
+	void PenaliseAndDisconnect_();
+
 	[[nodiscard]] static std::string KeyOf_(const domain::AnnounceSummary& summary);
 
 	libtorrent::peer_connection_handle _connection;
 	AnnounceExchange* _exchange;
 	int _remoteMessageId;
 	bool _counted;
-	std::set<std::string> _outstanding;
+	OutstandingWantTracker _wants;
 	std::vector<domain::AnnounceSummary> _lastOffered;
 	std::chrono::steady_clock::time_point _lastOffer;
 	std::chrono::steady_clock::time_point _lastHoldingsPoll;

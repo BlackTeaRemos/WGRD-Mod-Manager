@@ -19,5 +19,9 @@ public:
 		std::span<const std::uint8_t> sealedManifest,
 		std::int32_t pieceBytes = ChunkSetTorrent::DEFAULT_PIECE_BYTES
 	);
+
+	[[nodiscard]] static std::expected<ChunkSetTorrentBytes, TorrentBuildError> Describe(
+		std::vector<char> bencoded
+	);
 };
 }

@@ -29,7 +29,7 @@ AnnounceGossipPeerPlugin::AnnounceGossipPeerPlugin(
 	, _exchange(&exchange)
 	, _remoteMessageId(0)
 	, _counted(false)
-	, _outstanding()
+	, _wants()
 	, _lastOffered()
 	, _lastOffer()
 	, _lastHoldingsPoll() {}
@@ -46,6 +46,14 @@ libtorrent::string_view AnnounceGossipPeerPlugin::type() const {
 
 std::string AnnounceGossipPeerPlugin::KeyOf_(const domain::AnnounceSummary& summary) {
 	return summary.Identifier();
+}
+
+void AnnounceGossipPeerPlugin::PenaliseAndDisconnect_() {
+	_exchange->Penalise(PeerKey_());
+	_connection.disconnect(
+		libtorrent::error_code(libtorrent::errors::invalid_message),
+		libtorrent::operation_t::bittorrent
+	);
 }
 
 std::string AnnounceGossipPeerPlugin::PeerKey_() const {
@@ -131,11 +139,7 @@ void AnnounceGossipPeerPlugin::SendOffer_(std::vector<domain::AnnounceSummary> h
 void AnnounceGossipPeerPlugin::HandleOffer_(const libtorrent::span<const char> body) {
 	const auto offered = AnnounceWireCodec::DecodeOffer(AsBytes(body));
 	if (!offered.has_value()) {
-		_exchange->Penalise(PeerKey_());
-		_connection.disconnect(
-			libtorrent::error_code(libtorrent::errors::invalid_message),
-			libtorrent::operation_t::bittorrent
-		);
+		PenaliseAndDisconnect_();
 		return;
 	}
 
@@ -146,21 +150,32 @@ void AnnounceGossipPeerPlugin::HandleOffer_(const libtorrent::span<const char> b
 		return;
 	}
 
+	const auto now = OutstandingWantTracker::Clock::now();
+
+	_wants.Prune(now);
+
+	std::vector<domain::AnnounceSummary> tracked;
+	tracked.reserve(wanted.size());
+
 	for (const domain::AnnounceSummary& summary : wanted) {
-		_outstanding.insert(KeyOf_(summary));
+		if (!_wants.Track(KeyOf_(summary), now)) {
+			continue;
+		}
+
+		tracked.push_back(summary);
 	}
 
-	Send_(AnnounceWireCodec::EncodeWant(wanted));
+	if (tracked.empty()) {
+		return;
+	}
+
+	Send_(AnnounceWireCodec::EncodeWant(tracked));
 }
 
 void AnnounceGossipPeerPlugin::HandleWant_(const libtorrent::span<const char> body) {
 	const auto wanted = AnnounceWireCodec::DecodeWant(AsBytes(body));
 	if (!wanted.has_value()) {
-		_exchange->Penalise(PeerKey_());
-		_connection.disconnect(
-			libtorrent::error_code(libtorrent::errors::invalid_message),
-			libtorrent::operation_t::bittorrent
-		);
+		PenaliseAndDisconnect_();
 		return;
 	}
 
@@ -177,20 +192,18 @@ void AnnounceGossipPeerPlugin::HandleWant_(const libtorrent::span<const char> bo
 void AnnounceGossipPeerPlugin::HandleRecord_(const libtorrent::span<const char> body) {
 	const auto record = AnnounceWireCodec::DecodeRecord(AsBytes(body));
 	if (!record.has_value()) {
-		_exchange->Penalise(PeerKey_());
-		_connection.disconnect(
-			libtorrent::error_code(libtorrent::errors::invalid_message),
-			libtorrent::operation_t::bittorrent
-		);
+		PenaliseAndDisconnect_();
 		return;
 	}
 
-	if (_outstanding.empty()) {
-		_exchange->Penalise(PeerKey_());
-		_connection.disconnect(
-			libtorrent::error_code(libtorrent::errors::invalid_message),
-			libtorrent::operation_t::bittorrent
-		);
+	const auto identity = AnnounceWireCodec::RecordSummary(*record);
+	if (!identity.has_value()) {
+		PenaliseAndDisconnect_();
+		return;
+	}
+
+	if (!_wants.Redeem(KeyOf_(*identity))) {
+		PenaliseAndDisconnect_();
 		return;
 	}
 
@@ -216,11 +229,7 @@ bool AnnounceGossipPeerPlugin::on_extended(
 	}
 
 	if (length > static_cast<int>(AnnounceWireCodec::MAXIMUM_MESSAGE_BYTES)) {
-		_exchange->Penalise(PeerKey_());
-		_connection.disconnect(
-			libtorrent::error_code(libtorrent::errors::invalid_message),
-			libtorrent::operation_t::bittorrent
-		);
+		PenaliseAndDisconnect_();
 		return true;
 	}
 
@@ -230,11 +239,7 @@ bool AnnounceGossipPeerPlugin::on_extended(
 
 	const auto kind = AnnounceWireCodec::MessageOf(AsBytes(body));
 	if (!kind.has_value()) {
-		_exchange->Penalise(PeerKey_());
-		_connection.disconnect(
-			libtorrent::error_code(libtorrent::errors::invalid_message),
-			libtorrent::operation_t::bittorrent
-		);
+		PenaliseAndDisconnect_();
 		return true;
 	}
 
@@ -265,6 +270,8 @@ void AnnounceGossipPeerPlugin::tick() {
 	}
 
 	_lastHoldingsPoll = now;
+
+	_wants.Prune(now);
 
 	std::vector<domain::AnnounceSummary> holdings = _exchange->Holdings();
 

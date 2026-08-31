@@ -20,6 +20,21 @@ ManifestDiffer::HeldChunkIndex ManifestDiffer::IndexHeldChunks_(const domain::Mo
 	return index;
 }
 
+bool ManifestDiffer::FileUnchanged_(
+	const domain::ModManifest& held,
+	const domain::ManifestFile& file
+) {
+	const auto match = std::find_if(
+		held.Files().begin(),
+		held.Files().end(),
+		[&file](const domain::ManifestFile& candidate) {
+			return candidate.path == file.path;
+		}
+	);
+
+	return match != held.Files().end() && *match == file;
+}
+
 domain::InstallPlan ManifestDiffer::Diff(
 	const domain::ModManifest& held,
 	const domain::ModManifest& target
@@ -30,6 +45,10 @@ domain::InstallPlan ManifestDiffer::Diff(
 	files.reserve(target.Files().size());
 
 	for (const domain::ManifestFile& file : target.Files()) {
+		if (FileUnchanged_(held, file)) {
+			continue;
+		}
+
 		std::vector<domain::ChunkPlacement> placements;
 		placements.reserve(file.chunks.size());
 

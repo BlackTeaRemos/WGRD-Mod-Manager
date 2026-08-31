@@ -31,6 +31,8 @@ public:
 
 	[[nodiscard]] virtual std::uint64_t CompletedInstalls() const = 0;
 
+	[[nodiscard]] virtual std::uint64_t SettledAttempts() const = 0;
+
 	virtual void Poll() = 0;
 
 	virtual void Cancel() = 0;

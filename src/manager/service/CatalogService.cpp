@@ -1,6 +1,7 @@
 #include "manager/service/CatalogService.h"
 
 #include "manager/scan/ModFolderScanner.h"
+#include "manager/text/ServiceText.h"
 
 #include <algorithm>
 #include <utility>
@@ -63,6 +64,10 @@ domain::CatalogRow CatalogService::Describe_(
 		return row;
 	}
 
+	if (manifest->ModName() != announce.modName) {
+		return row;
+	}
+
 	row.totalBytes = manifest->TotalBytes();
 	row.chunkCount = manifest->ChunkCount();
 	row.fileCount = manifest->Files().size();
@@ -71,12 +76,18 @@ domain::CatalogRow CatalogService::Describe_(
 	return row;
 }
 
-void CatalogService::Seed_(const domain::SignedAnnounce& announce, const domain::CatalogRow& row) {
+void CatalogService::Seed_(const domain::SignedAnnounce& announce, domain::CatalogRow& row) {
 	if (_seeding == nullptr || !_seeding->Enabled()) {
 		return;
 	}
 
 	if (row.revoked || !row.installed) {
+		const bool stopped = _seeding->StopSeeding(row.identifier);
+		(void)stopped;
+		return;
+	}
+
+	if (row.VersionKnown() && row.installedVersion != row.version) {
 		const bool stopped = _seeding->StopSeeding(row.identifier);
 		(void)stopped;
 		return;
@@ -106,27 +117,27 @@ void CatalogService::Seed_(const domain::SignedAnnounce& announce, const domain:
 		_modsDirectory / manifest->ModName(),
 		_store->PathFor(announce.manifestDigest.ToHex())
 	);
-	(void)seeded;
+
+	if (!seeded.has_value()) {
+		return;
+	}
+
+	if (seeded->infoHash != announce.torrentInfoHash.ToHex()) {
+		const bool stopped = _seeding->StopSeeding(row.identifier);
+		(void)stopped;
+		row.seedFault = text::SEED_INFOHASH_MISMATCH;
+	}
 }
 
 std::vector<std::string> CatalogService::CollectVerified_() const {
 	std::vector<std::string> folders;
 
-	for (const domain::InstalledRelease& release : _installed->LoadAll()) {
-		const std::size_t separator = release.identifier.find('/');
-		if (separator == std::string::npos) {
+	for (const domain::CatalogRow& row : _rows) {
+		if (!row.manifestHeld || row.revoked) {
 			continue;
 		}
 
-		const auto fingerprint = domain::PublisherFingerprint::FromHex(
-			release.identifier.substr(0, separator)
-		);
-
-		if (!fingerprint.has_value() || !_registry->IsUsable(*fingerprint)) {
-			continue;
-		}
-
-		folders.push_back(release.modName);
+		folders.push_back(row.modName);
 	}
 
 	return folders;
@@ -139,8 +150,6 @@ bool CatalogService::Verified(const std::string_view folder) const {
 void CatalogService::Refresh() {
 	_registry->Reload();
 
-	_verified = CollectVerified_();
-
 	std::vector<std::string> installedFolders;
 	for (const domain::InstalledMod& mod : ModFolderScanner::Scan(_modsDirectory)) {
 		installedFolders.push_back(mod.folder.Value());
@@ -149,7 +158,7 @@ void CatalogService::Refresh() {
 	_rows.clear();
 
 	for (const domain::SignedAnnounce& announce : _receiver->All()) {
-		const domain::CatalogRow row = Describe_(announce, installedFolders);
+		domain::CatalogRow row = Describe_(announce, installedFolders);
 
 		Seed_(announce, row);
 
@@ -160,6 +169,8 @@ void CatalogService::Refresh() {
 		          return left.identifier < right.identifier;
 	          }
 	);
+
+	_verified = CollectVerified_();
 }
 
 const std::vector<domain::CatalogRow>& CatalogService::Rows() const {

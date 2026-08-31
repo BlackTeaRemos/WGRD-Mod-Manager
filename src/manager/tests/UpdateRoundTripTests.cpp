@@ -216,9 +216,11 @@ TEST_CASE("update reuses held chunks and fetches only what changed") {
 
 	const InstallPlan updatePlan = differ.Diff(*heldManifest, *targetManifest);
 
+	REQUIRE(updatePlan.Files().size() == 1);
+	REQUIRE(updatePlan.Files()[0].path == "packs/ZZ_Win.dat");
 	REQUIRE(updatePlan.RemoteChunkCount() == 1);
 	REQUIRE(updatePlan.RemoteBytes() == CHUNK_LENGTH);
-	REQUIRE(updatePlan.HeldBytes() == targetManifest->TotalBytes() - CHUNK_LENGTH);
+	REQUIRE(updatePlan.HeldBytes() == 63 * CHUNK_LENGTH);
 
 	PublisherChunkSource secondSource(*targetManifest, publisher.Root());
 	const auto updateReport = installer.Apply(updatePlan, consumer.Root(), secondSource);
@@ -299,7 +301,8 @@ TEST_CASE("seeded update rewrites only the chunks that moved or changed") {
 
 	REQUIRE(updateReport.has_value());
 	REQUIRE(secondSource.Served() == 0);
-	REQUIRE(updateReport->heldBytes == targetManifest->TotalBytes() - CHUNK_LENGTH);
+	REQUIRE(updateReport->heldBytes == 63 * CHUNK_LENGTH);
+	REQUIRE(updateReport->filesWritten == 1);
 }
 
 TEST_CASE("seeded update grows a file and fetches only the appended chunks") {

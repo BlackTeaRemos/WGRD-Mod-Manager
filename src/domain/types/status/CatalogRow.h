@@ -16,6 +16,7 @@ struct CatalogRow {
 	bool manifestHeld;
 	std::uint64_t installedVersion = 0;
 	bool revoked = false;
+	std::string seedFault{};
 
 	[[nodiscard]] bool Outdated() const {
 		return installed && installedVersion != 0 && version > installedVersion;

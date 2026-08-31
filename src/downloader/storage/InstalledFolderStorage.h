@@ -1,20 +1,21 @@
 #pragma once
 
 #include "downloader/storage/ChunkLocator.h"
+#include "downloader/storage/ChunkRangeIo.h"
+#include "downloader/storage/SeedAttestations.h"
 #include "downloader/storage/StorageFaults.h"
+#include "downloader/storage/StorageJobQueue.h"
 
 #include <libtorrent/disk_buffer_holder.hpp>
 #include <libtorrent/disk_interface.hpp>
 #include <libtorrent/file_storage.hpp>
 #include <libtorrent/io_context.hpp>
 
-#include <condition_variable>
-#include <deque>
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <mutex>
-#include <thread>
+#include <optional>
 #include <vector>
 
 namespace wgrd::downloader {
@@ -25,7 +26,8 @@ public:
 	InstalledFolderStorage(
 		const ChunkLocator& locator,
 		libtorrent::io_context& context,
-		StorageFaults& faults
+		StorageFaults& faults,
+		const SeedAttestations& attestations
 	);
 
 	~InstalledFolderStorage() override;
@@ -136,44 +138,32 @@ private:
 	struct MountedTorrent {
 		libtorrent::file_storage files;
 		std::filesystem::path savePath;
-		bool writable;
+		StorageRole role;
 		bool mounted;
 	};
 
-	[[nodiscard]] bool WriteRange_(
+	[[nodiscard]] StorageRole ClassifyRole_(const libtorrent::storage_params& parameters) const;
+
+	[[nodiscard]] std::optional<MountedTorrent> Mounted_(libtorrent::storage_index_t storage) const;
+
+	[[nodiscard]] ReadOutcome ReadRange_(
 		libtorrent::storage_index_t storage,
 		libtorrent::piece_index_t piece,
 		std::int64_t offset,
 		std::int64_t length,
-		const char* source
+		char* target,
+		libtorrent::file_index_t& failedFile
 	) const;
-
-	[[nodiscard]] bool ReadRange_(
-		libtorrent::storage_index_t storage,
-		libtorrent::piece_index_t piece,
-		std::int64_t offset,
-		std::int64_t length,
-		char* target
-	) const;
-
-	void Enqueue_(std::function<void()> job);
 
 	void Complete_(std::function<void()> completion) const;
-
-	void RunWorker_();
-
-	void StopWorker_();
 
 	const ChunkLocator* _locator;
 	libtorrent::io_context* _context;
 	StorageFaults* _faults;
+	const SeedAttestations* _attestations;
+	ChunkRangeIo _rangeIo;
 	mutable std::mutex _guard;
-	mutable std::mutex _jobGuard;
-	std::condition_variable _jobSignal;
-	std::deque<std::function<void()>> _jobs;
-	std::deque<std::function<void()>> _ready;
-	bool _stopping;
-	std::thread _worker;
+	StorageJobQueue _queue;
 	std::vector<MountedTorrent> _torrents;
 };
 }

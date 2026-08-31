@@ -13,6 +13,8 @@
 #include <libtorrent/torrent_info.hpp>
 #include <libtorrent/torrent_status.hpp>
 
+#include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -20,6 +22,7 @@
 namespace wgrd::downloader {
 namespace {
 	constexpr char LOOPBACK_INTERFACE[] = "127.0.0.1:0";
+	constexpr std::string_view LISTEN_BIND_FAILED = "listen bind failed";
 	constexpr std::chrono::milliseconds POLL_INTERVAL{25};
 	constexpr std::chrono::milliseconds LISTEN_TIMEOUT{8000};
 	constexpr int LISTEN_ATTEMPTS = 3;
@@ -58,12 +61,13 @@ namespace {
 }
 
 SwarmNode::SwarmNode(std::filesystem::path savePath, const ChunkLocator& locator)
-	: _session(nullptr)
+	: _faults()
+	, _session(nullptr)
 	, _handle(nullptr)
 	, _savePath(std::move(savePath))
 	, _listenPort(0)
-	, _faults()
-	, _cacheFlushed(false) {
+	, _cacheFlushed(false)
+	, _listenFailure() {
 	libtorrent::session_params parameters(BuildLocalSettings());
 
 	parameters.disk_io_constructor = [&locator, this](
@@ -71,7 +75,12 @@ SwarmNode::SwarmNode(std::filesystem::path savePath, const ChunkLocator& locator
 		const libtorrent::settings_interface&,
 		libtorrent::counters&
 	) -> std::unique_ptr<libtorrent::disk_interface> {
-				return std::make_unique<InstalledFolderStorage>(locator, context, _faults);
+				return std::make_unique<InstalledFolderStorage>(
+					locator,
+					context,
+					_faults,
+					_attestations
+				);
 			};
 
 	_session = std::make_unique<libtorrent::session>(std::move(parameters));
@@ -80,18 +89,20 @@ SwarmNode::SwarmNode(std::filesystem::path savePath, const ChunkLocator& locator
 }
 
 SwarmNode::SwarmNode(std::filesystem::path savePath)
-	: _session(std::make_unique<libtorrent::session>(BuildLocalSettings()))
+	: _faults()
+	, _session(std::make_unique<libtorrent::session>(BuildLocalSettings()))
 	, _handle(nullptr)
 	, _savePath(std::move(savePath))
 	, _listenPort(0)
-	, _cacheFlushed(false) {
+	, _cacheFlushed(false)
+	, _listenFailure() {
 	AwaitListener_();
 }
 
 void SwarmNode::AwaitListener_() {
 	for (int attempt = 0; attempt < LISTEN_ATTEMPTS && _listenPort == 0; ++attempt) {
 		if (attempt > 0) {
-			_session->apply_settings(BuildLocalSettings());
+			_session->reopen_network_sockets(libtorrent::session_handle::reopen_map_ports);
 		}
 
 		const auto deadline = std::chrono::steady_clock::now() + LISTEN_TIMEOUT;
@@ -131,6 +142,12 @@ void SwarmNode::DrainAlerts_() {
 
 		if (libtorrent::alert_cast<libtorrent::cache_flushed_alert>(entry) != nullptr) {
 			_cacheFlushed = true;
+			continue;
+		}
+
+		if (const auto* const refused =
+				libtorrent::alert_cast<libtorrent::listen_failed_alert>(entry)) {
+			_listenFailure = std::string(LISTEN_BIND_FAILED) + " " + refused->error.message();
 			continue;
 		}
 
@@ -205,6 +222,10 @@ void SwarmNode::Pump() {
 
 const std::vector<std::string>& SwarmNode::Messages() const {
 	return _messages;
+}
+
+const std::string& SwarmNode::ListenFailure() const {
+	return _listenFailure;
 }
 
 float SwarmNode::Progress() const {

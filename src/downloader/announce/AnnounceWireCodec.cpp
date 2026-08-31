@@ -213,4 +213,40 @@ std::optional<std::vector<std::uint8_t>> AnnounceWireCodec::DecodeRecord(
 
 	return std::vector<std::uint8_t>(message.begin() + HEADER_BYTES, message.end());
 }
+
+std::optional<domain::AnnounceSummary> AnnounceWireCodec::RecordSummary(
+	const std::span<const std::uint8_t> record
+) {
+	if (record.size() != RECORD_BYTES) {
+		return std::nullopt;
+	}
+
+	const auto fingerprint = domain::PublisherFingerprint::FromBytes(
+		record.subspan(RECORD_FINGERPRINT_OFFSET, FINGERPRINT_BYTES)
+	);
+
+	if (!fingerprint.has_value()) {
+		return std::nullopt;
+	}
+
+	std::string modName;
+	for (std::size_t position = 0; position < MOD_NAME_BYTES; ++position) {
+		const std::uint8_t value = record[RECORD_MOD_NAME_OFFSET + position];
+		if (value == 0) {
+			break;
+		}
+		modName.push_back(static_cast<char>(value));
+	}
+
+	if (!domain::ModNameRule::IsAcceptable(modName)) {
+		return std::nullopt;
+	}
+
+	domain::AnnounceSummary summary;
+	summary.publisher = *fingerprint;
+	summary.modName = std::move(modName);
+	summary.version = ReadLittleEndian64_(record, RECORD_VERSION_OFFSET);
+
+	return summary;
+}
 }

@@ -1,110 +1,66 @@
 #include "downloader/transfer/TorrentSession.h"
 
 #include "downloader/announce/AnnounceGossipPlugin.h"
-#include "downloader/announce/ControlSwarmTorrent.h"
 #include "downloader/storage/InstalledFolderStorage.h"
-#include "downloader/torrent/build/VirtualChunkSetTorrent.h"
+#include "downloader/transfer/AlertRouter.h"
+#include "downloader/transfer/ControlSwarmStarter.h"
+#include "downloader/transfer/FetchRefresher.h"
+#include "downloader/transfer/SeedTorrentAssembler.h"
+#include "downloader/transfer/SessionSettings.h"
 
 #include "domain/types/content/ChunkFileNaming.h"
 
 #include <libtorrent/add_torrent_params.hpp>
-#include <libtorrent/alert_types.hpp>
 #include <libtorrent/error_code.hpp>
-#include <libtorrent/load_torrent.hpp>
 #include <libtorrent/magnet_uri.hpp>
 #include <libtorrent/session.hpp>
 #include <libtorrent/session_params.hpp>
-#include <libtorrent/settings_pack.hpp>
 #include <libtorrent/torrent_handle.hpp>
-#include <libtorrent/torrent_info.hpp>
 #include <libtorrent/torrent_status.hpp>
 
-#include <algorithm>
-#include <fstream>
-#include <iterator>
+#include <optional>
+#include <set>
 #include <system_error>
 #include <utility>
 
 namespace wgrd::downloader {
-namespace {
-	constexpr std::string_view LOOPBACK_ADDRESS = "127.0.0.1";
-	constexpr std::string_view PEER_SENT_BAD_DATA = "peer sent bad data";
-	constexpr std::string_view PEER_BANNED_BAD_DATA = "peer banned bad data";
-
-	int AlertMask() {
-		constexpr libtorrent::alert_category_t mask =
-				libtorrent::alert_category::status |
-				libtorrent::alert_category::dht |
-				libtorrent::alert_category::peer |
-				libtorrent::alert_category::connect |
-				libtorrent::alert_category::error;
-
-		return static_cast<int>(static_cast<std::uint32_t>(mask));
-	}
-
-	libtorrent::settings_pack BuildSettings(const std::string& listenInterfaces, const bool discovery) {
-		libtorrent::settings_pack settings;
-
-		settings.set_bool(libtorrent::settings_pack::enable_dht, discovery);
-		settings.set_bool(libtorrent::settings_pack::enable_lsd, discovery);
-		settings.set_bool(libtorrent::settings_pack::enable_upnp, discovery);
-		settings.set_bool(libtorrent::settings_pack::enable_natpmp, discovery);
-
-		settings.set_str(libtorrent::settings_pack::listen_interfaces, listenInterfaces);
-		settings.set_int(libtorrent::settings_pack::alert_mask, AlertMask());
-
-		settings.set_str(libtorrent::settings_pack::user_agent, "wgrd-mod-manager");
-		settings.set_str(libtorrent::settings_pack::peer_fingerprint, "-WG0100-");
-
-		settings.set_int(
-			libtorrent::settings_pack::max_retry_port_bind,
-			TorrentSession::PORT_RETRY_LIMIT
-		);
-
-		settings.set_bool(libtorrent::settings_pack::close_redundant_connections, false);
-		settings.set_bool(libtorrent::settings_pack::allow_multiple_connections_per_ip, true);
-
-		settings.set_int(
-			libtorrent::settings_pack::local_service_announce_interval,
-			TorrentSession::LOCAL_ANNOUNCE_SECONDS
-		);
-
-		return settings;
-	}
-}
-
 TorrentSession::TorrentSession(
 	std::filesystem::path savePath,
 	std::string listenInterfaces,
 	const bool discovery
 )
 	: _locator()
+	, _stamps(savePath / TORRENT_CACHE_FOLDER)
+	, _torrents(savePath / TORRENT_CACHE_FOLDER)
 	, _exchange(nullptr)
 	, _session(nullptr)
 	, _control(nullptr)
 	, _savePath(std::move(savePath))
 	, _status()
 	, _gossip()
-	, _manualPeers()
+	, _dialer()
 	, _lastNeighbourDial()
 	, _lastStatusPoll()
-	, _neighbourDials(0)
 	, _lastPeerError()
-	, _seeded()
-	, _entries()
+	, _lastTransferFailure()
+	, _roster()
+	, _entriesView()
 	, _enabled(true)
-	, _fetching(nullptr)
-	, _wanted()
-	, _prioritised(false)
-	, _fetch() {
-	libtorrent::session_params parameters(BuildSettings(listenInterfaces, discovery));
+	, _fetchState()
+	, _present() {
+	libtorrent::session_params parameters(SessionSettings::Build(listenInterfaces, discovery));
 
 	parameters.disk_io_constructor = [this](
 		libtorrent::io_context& context,
 		const libtorrent::settings_interface&,
 		libtorrent::counters&
 	) -> std::unique_ptr<libtorrent::disk_interface> {
-				return std::make_unique<InstalledFolderStorage>(_locator, context, _faults);
+				return std::make_unique<InstalledFolderStorage>(
+					_locator,
+					context,
+					_faults,
+					_attestations
+				);
 			};
 
 	_session = std::make_unique<libtorrent::session>(std::move(parameters));
@@ -116,6 +72,11 @@ TorrentSession::TorrentSession(
 }
 
 TorrentSession::~TorrentSession() = default;
+
+void TorrentSession::UseTorrentCache(std::filesystem::path folder) {
+	_stamps.UseFolder(folder);
+	_torrents = TorrentCache(std::move(folder));
+}
 
 void TorrentSession::StartGossip(
 	domain::IAnnounceCatalogue& catalogue,
@@ -129,50 +90,23 @@ void TorrentSession::StartGossip(
 	_exchange = std::make_unique<AnnounceExchange>(catalogue, receiver);
 	_session->add_extension(std::make_shared<AnnounceGossipPlugin>(*_exchange));
 
-	const ControlSwarmTorrent::Built control = ControlSwarmTorrent::Create();
+	std::optional<PreparedControlTorrent> prepared =
+			ControlSwarmStarter::Prepare(_locator, dataDirectory);
 
-	std::error_code creating;
-	std::filesystem::create_directories(dataDirectory, creating);
-
-	const std::filesystem::path payloadPath = dataDirectory / control.name;
-
-	{
-		std::ofstream output(payloadPath, std::ios::binary | std::ios::trunc);
-		if (!output) {
-			return;
-		}
-
-		output.write(
-			reinterpret_cast<const char*>(control.payload.data()),
-			static_cast<std::streamsize>(control.payload.size())
-		);
-	}
-
-	_locator.RegisterFile(control.name, payloadPath, 0, control.payload.size());
-
-	libtorrent::error_code parsing;
-	libtorrent::add_torrent_params parameters = libtorrent::load_torrent_buffer(
-		libtorrent::span<const char>(
-			control.bencoded.data(),
-			static_cast<std::ptrdiff_t>(control.bencoded.size())
-		),
-		parsing,
-		libtorrent::load_torrent_limits{}
-	);
-
-	if (parsing || parameters.ti == nullptr) {
+	if (!prepared.has_value()) {
 		return;
 	}
 
-	parameters.save_path = dataDirectory.string();
-	parameters.flags &= ~libtorrent::torrent_flags::paused;
-	parameters.flags &= ~libtorrent::torrent_flags::auto_managed;
-
 	libtorrent::error_code adding;
-	libtorrent::torrent_handle handle = _session->add_torrent(std::move(parameters), adding);
+	libtorrent::torrent_handle handle =
+			_session->add_torrent(std::move(prepared->parameters), adding);
 
 	if (adding || !handle.is_valid()) {
 		return;
+	}
+
+	if (prepared->hasV2) {
+		_present.Record(prepared->infoHash);
 	}
 
 	_control = std::make_unique<libtorrent::torrent_handle>(std::move(handle));
@@ -183,41 +117,8 @@ const domain::GossipStatus& TorrentSession::Gossip() const {
 	return _gossip;
 }
 
-void TorrentSession::DialManualPeers_(libtorrent::torrent_handle& handle) const {
-	if (!handle.is_valid()) {
-		return;
-	}
-
-	for (const auto& peer : _manualPeers) {
-		libtorrent::error_code parsing;
-		const libtorrent::address parsed = libtorrent::make_address(peer.first, parsing);
-
-		if (parsing) {
-			continue;
-		}
-
-		handle.connect_peer(libtorrent::tcp::endpoint(parsed, peer.second));
-	}
-}
-
 void TorrentSession::DialNeighbours_(libtorrent::torrent_handle& handle) {
-	if (!handle.is_valid()) {
-		return;
-	}
-
-	const auto ours = _session->listen_port();
-	const libtorrent::address loopback = libtorrent::make_address_v4("127.0.0.1");
-
-	for (int offset = 0; offset < PORT_RETRY_LIMIT; ++offset) {
-		const auto candidate = static_cast<std::uint16_t>(NEIGHBOUR_BASE_PORT + offset);
-
-		if (candidate == ours) {
-			continue;
-		}
-
-		handle.connect_peer(libtorrent::tcp::endpoint(loopback, candidate));
-		++_neighbourDials;
-	}
+	_dialer.DialNeighbours(handle, _session->listen_port());
 }
 
 void TorrentSession::DialLoopbackNeighbours_() {
@@ -232,49 +133,39 @@ void TorrentSession::DialLoopbackNeighbours_() {
 		DialNeighbours_(*_control);
 	}
 
-	for (std::size_t index = 0; index < _seeded.size(); ++index) {
-		const bool connected = index < _entries.size() && _entries[index].peers > 0;
-
-		if (!connected) {
-			DialNeighbours_(*_seeded[index].handle);
+	for (const SeedHandleView& view : _roster.Handles()) {
+		if (view.peers == 0 && view.handle != nullptr) {
+			DialNeighbours_(*view.handle);
 		}
 	}
 
-	if (_fetching != nullptr) {
-		DialManualPeers_(*_fetching);
-		DialNeighbours_(*_fetching);
+	std::optional<libtorrent::torrent_handle> active = _fetchState.Active();
+
+	if (active.has_value()) {
+		_dialer.DialManual(*active);
+		DialNeighbours_(*active);
 	}
 }
 
 bool TorrentSession::AddGossipPeer(const std::string_view address, std::uint16_t port) {
-	if (port == 0) {
+	if (!_dialer.AddManualPeer(address, port)) {
 		return false;
-	}
-
-	libtorrent::error_code parsing;
-	const libtorrent::address parsed =
-			libtorrent::make_address(std::string(address), parsing);
-
-	if (parsing) {
-		return false;
-	}
-
-	const std::pair<std::string, std::uint16_t> peer{std::string(address), port};
-
-	if (std::ranges::find(_manualPeers, peer) == _manualPeers.end()) {
-		_manualPeers.push_back(peer);
 	}
 
 	if (_control != nullptr) {
-		DialManualPeers_(*_control);
+		_dialer.DialManual(*_control);
 	}
 
-	for (const SeededTorrent& seeded : _seeded) {
-		DialManualPeers_(*seeded.handle);
+	for (const SeedHandleView& view : _roster.Handles()) {
+		if (view.handle != nullptr) {
+			_dialer.DialManual(*view.handle);
+		}
 	}
 
-	if (_fetching != nullptr) {
-		DialManualPeers_(*_fetching);
+	std::optional<libtorrent::torrent_handle> active = _fetchState.Active();
+
+	if (active.has_value()) {
+		_dialer.DialManual(*active);
 	}
 
 	return true;
@@ -285,11 +176,13 @@ std::uint16_t TorrentSession::ListenPort() const {
 }
 
 void TorrentSession::ConnectLocalPeer(const std::uint16_t port) {
-	if (_fetching == nullptr || !_fetching->is_valid()) {
+	std::optional<libtorrent::torrent_handle> active = _fetchState.Active();
+
+	if (!active.has_value() || !active->is_valid()) {
 		return;
 	}
 
-	_fetching->connect_peer(libtorrent::tcp::endpoint(
+	active->connect_peer(libtorrent::tcp::endpoint(
 			libtorrent::make_address_v4("127.0.0.1"),
 			port
 		)
@@ -311,24 +204,17 @@ void TorrentSession::SetEnabled(const bool enabled) {
 		return;
 	}
 
-	for (const SeededTorrent& seeded : _seeded) {
-		if (!seeded.handle->is_valid()) {
+	for (const SeedHandleView& view : _roster.Handles()) {
+		if (view.handle == nullptr || !view.handle->is_valid()) {
 			continue;
 		}
 
 		if (enabled) {
-			seeded.handle->resume();
+			view.handle->resume();
 		} else {
-			seeded.handle->pause();
+			view.handle->pause();
 		}
 	}
-}
-
-bool TorrentSession::AlreadySeeding_(const std::string& identifier) const {
-	return std::ranges::any_of(_seeded, [&identifier](const SeededTorrent& seeded) {
-			return seeded.identifier == identifier;
-		}
-	);
 }
 
 std::expected<domain::SeedEntry, domain::SeedError> TorrentSession::Announce(
@@ -342,145 +228,142 @@ std::expected<domain::SeedEntry, domain::SeedError> TorrentSession::Announce(
 
 	const std::string identifier = manifest.Identifier();
 
-	if (AlreadySeeding_(identifier)) {
+	if (_roster.Contains(identifier)) {
 		return std::unexpected(domain::SeedError::AlreadySeeding);
 	}
 
 	_locator.Register(manifest, modFolder);
 
-	std::vector<std::uint8_t> sealed;
+	const std::string stampKey = sealedManifestPath.stem().string();
+	const std::string stamp = ModFolderStamp::Compute(manifest, modFolder);
+	const std::optional<std::string> storedStamp = _stamps.Load(stampKey);
 
-	{
-		std::ifstream input(sealedManifestPath, std::ios::binary);
-		if (input) {
-			sealed.assign(
-				std::istreambuf_iterator<char>(input),
-				std::istreambuf_iterator<char>()
-			);
-		}
+	if (storedStamp.has_value() && *storedStamp == stamp) {
+		_attestations.Mark(manifest.TorrentName());
+	} else {
+		_attestations.Forget(manifest.TorrentName());
+
+		const bool stamped = _stamps.Save(stampKey, stamp);
+		(void)stamped;
 	}
 
-	if (sealed.empty()) {
+	std::optional<PreparedSeedTorrent> prepared = SeedTorrentAssembler::Prepare(
+		_torrents,
+		manifest,
+		modFolder,
+		sealedManifestPath,
+		_savePath
+	);
+
+	if (!prepared.has_value()) {
+		_locator.Forget(manifest, modFolder);
 		return std::unexpected(domain::SeedError::TorrentBuildFailed);
 	}
 
-	_locator.RegisterFile(
+	const bool sealedRegistered = _locator.RegisterFile(
 		manifest.TorrentName() + "/" + std::string(domain::ChunkFileNaming::MANIFEST_FILE),
 		sealedManifestPath,
 		0,
-		sealed.size()
+		prepared->sealedBytes
 	);
 
-	const auto torrent = VirtualChunkSetTorrent::Create(
-		manifest,
-		modFolder,
-		manifest.TorrentName(),
-		sealed
-	);
-
-	if (!torrent.has_value()) {
+	if (!sealedRegistered) {
+		_locator.Forget(manifest, modFolder);
 		return std::unexpected(domain::SeedError::TorrentBuildFailed);
 	}
-
-	libtorrent::error_code parsing;
-	libtorrent::add_torrent_params parameters = libtorrent::load_torrent_buffer(
-		libtorrent::span<const char>(
-			torrent->bencoded.data(),
-			static_cast<std::ptrdiff_t>(torrent->bencoded.size())
-		),
-		parsing,
-		libtorrent::load_torrent_limits{}
-	);
-
-	if (parsing || parameters.ti == nullptr) {
-		return std::unexpected(domain::SeedError::TorrentBuildFailed);
-	}
-
-	parameters.save_path = _savePath.string();
-	parameters.flags &= ~libtorrent::torrent_flags::paused;
-	parameters.flags &= ~libtorrent::torrent_flags::auto_managed;
 
 	libtorrent::error_code adding;
-	libtorrent::torrent_handle handle = _session->add_torrent(std::move(parameters), adding);
+	libtorrent::torrent_handle handle =
+			_session->add_torrent(std::move(prepared->parameters), adding);
 
 	if (adding || !handle.is_valid()) {
+		_locator.Forget(manifest, modFolder);
 		return std::unexpected(domain::SeedError::SessionRejected);
 	}
 
-	_seeded.push_back(SeededTorrent{
-			identifier,
-			std::make_shared<libtorrent::torrent_handle>(std::move(handle)),
-			manifest,
-			modFolder
-		}
-	);
+	CapBulkTransfer_(handle);
 
-	DialManualPeers_(*_seeded.back().handle);
-	DialNeighbours_(*_seeded.back().handle);
+	auto shared = std::make_shared<libtorrent::torrent_handle>(std::move(handle));
 
 	const domain::SeedEntry entry{
-		identifier, manifest.ModName(), manifest.Version(), torrent->payloadBytes, manifest.ChunkCount(), torrent->infoHash, false, 0, 0
+		identifier, manifest.ModName(), manifest.Version(), prepared->payloadBytes, manifest.ChunkCount(), prepared->infoHash, false, 0, 0
 	};
 
-	_entries.push_back(entry);
+	if (!_roster.Add(SeededTorrent{identifier, shared, manifest, modFolder}, entry)) {
+		_session->remove_torrent(*shared);
+		_locator.Forget(manifest, modFolder);
+		return std::unexpected(domain::SeedError::AlreadySeeding);
+	}
+
+	_present.Record(prepared->infoHash);
+
+	_dialer.DialManual(*shared);
+	DialNeighbours_(*shared);
 
 	return entry;
 }
 
-bool TorrentSession::StopSeeding(std::string_view identifier) {
-	const auto seeded = std::ranges::find_if(_seeded, [&identifier](const SeededTorrent& candidate) {
-			return candidate.identifier == identifier;
-		}
-	);
+void TorrentSession::AttestContent(
+	const domain::ModManifest& manifest,
+	const std::filesystem::path& modFolder,
+	const std::filesystem::path& sealedManifestPath
+) {
+	const std::string stampKey = sealedManifestPath.stem().string();
+	const std::string stamp = ModFolderStamp::Compute(manifest, modFolder);
 
-	if (seeded == _seeded.end()) {
+	if (!_stamps.Save(stampKey, stamp)) {
+		return;
+	}
+
+	_attestations.Mark(manifest.TorrentName());
+}
+
+bool TorrentSession::StopSeeding(std::string_view identifier) {
+	const std::optional<RemovedSeed> removed = _roster.Remove(identifier);
+
+	if (!removed.has_value()) {
 		return false;
 	}
 
-	if (_session != nullptr && seeded->handle->is_valid()) {
-		_session->remove_torrent(*seeded->handle);
+	if (_session != nullptr && removed->handle != nullptr && removed->handle->is_valid()) {
+		_session->remove_torrent(*removed->handle);
 	}
 
-	const auto position = static_cast<std::size_t>(std::distance(_seeded.begin(), seeded));
+	_locator.Forget(removed->manifest, removed->modFolder);
+	_attestations.Forget(removed->manifest.TorrentName());
 
-	_locator.Forget(seeded->manifest, seeded->modFolder);
-
-	_seeded.erase(seeded);
-
-	if (position < _entries.size()) {
-		_entries.erase(_entries.begin() + static_cast<std::ptrdiff_t>(position));
+	if (!removed->infoHash.empty()) {
+		_present.Forget(removed->infoHash);
 	}
 
 	return true;
 }
 
 const std::vector<domain::SeedEntry>& TorrentSession::Entries() const {
-	return _entries;
+	_entriesView = _roster.Snapshot();
+	return _entriesView;
 }
 
 std::uint64_t TorrentSession::UploadedBytes() const {
-	std::uint64_t total = 0;
-	for (const domain::SeedEntry& entry : _entries) {
-		total += entry.uploadedBytes;
-	}
-	return total;
+	return _roster.UploadedBytes();
 }
 
 void TorrentSession::RefreshEntries_() {
-	for (std::size_t index = 0; index < _seeded.size() && index < _entries.size(); ++index) {
-		const libtorrent::torrent_handle& handle = *_seeded[index].handle;
-
-		if (!handle.is_valid()) {
+	for (const SeedHandleView& view : _roster.Handles()) {
+		if (view.handle == nullptr || !view.handle->is_valid()) {
 			continue;
 		}
 
-		const libtorrent::torrent_status status = handle.status();
+		const libtorrent::torrent_status status = view.handle->status();
 
 		AccumulateRates_(status.download_payload_rate, status.upload_payload_rate);
 
-		_entries[index].seeding = status.is_seeding;
-		_entries[index].peers = static_cast<std::uint32_t>(status.num_peers);
-		_entries[index].uploadedBytes = static_cast<std::uint64_t>(status.total_upload);
+		_roster.Update(
+			view.identifier,
+			status.is_seeding,
+			static_cast<std::uint32_t>(status.num_peers),
+			static_cast<std::uint64_t>(status.total_upload)
+		);
 	}
 }
 
@@ -492,7 +375,7 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 	const std::vector<domain::ChunkDestination>& destinations,
 	const bool verifyExisting
 ) {
-	if (_fetch.Busy()) {
+	if (_fetchState.Snapshot().Busy()) {
 		return std::unexpected(domain::FetchError::Busy);
 	}
 
@@ -500,20 +383,38 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 		return std::unexpected(domain::FetchError::NothingWanted);
 	}
 
+	if (_present.Contains(infoHash.ToHex())) {
+		return std::unexpected(domain::FetchError::AlreadyPresent);
+	}
+
 	Cancel();
 
-	_wanted.clear();
+	std::set<std::string> wanted;
 	for (const std::string& fileName : wantedFiles) {
-		_wanted.insert(fileName);
+		wanted.insert(fileName);
+	}
+
+	if (!_fetchState.Reserve(std::move(identifier), stagingFolder, std::move(wanted))) {
+		return std::unexpected(domain::FetchError::Busy);
+	}
+
+	if (_fetchState.AbandonPendingClear()) {
+		_locator.ClearDestinations();
 	}
 
 	for (const domain::ChunkDestination& destination : destinations) {
-		_locator.RegisterDestination(
+		const bool registered = _locator.RegisterDestination(
 			destination.chunkFileName,
 			destination.file,
 			destination.offset,
 			destination.length
 		);
+
+		if (!registered) {
+			_locator.ClearDestinations();
+			_fetchState.Release();
+			return std::unexpected(domain::FetchError::DestinationRejected);
+		}
 	}
 
 	_locator.SetVerifyExisting(verifyExisting);
@@ -524,6 +425,8 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 	libtorrent::add_torrent_params parameters = libtorrent::parse_magnet_uri(magnet, parsing);
 
 	if (parsing) {
+		_locator.ClearDestinations();
+		_fetchState.Release();
 		return std::unexpected(domain::FetchError::MagnetRejected);
 	}
 
@@ -532,6 +435,7 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 
 	parameters.save_path = stagingFolder.string();
 	parameters.flags |= libtorrent::torrent_flags::default_dont_download;
+	parameters.flags |= libtorrent::torrent_flags::duplicate_is_error;
 	parameters.flags &= ~libtorrent::torrent_flags::paused;
 	parameters.flags &= ~libtorrent::torrent_flags::auto_managed;
 
@@ -539,128 +443,80 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 	libtorrent::torrent_handle handle = _session->add_torrent(std::move(parameters), adding);
 
 	if (adding || !handle.is_valid()) {
+		_locator.ClearDestinations();
+		_fetchState.Release();
 		return std::unexpected(domain::FetchError::SessionRejected);
 	}
 
-	_fetching = std::make_unique<libtorrent::torrent_handle>(std::move(handle));
-	_prioritised = false;
-	_settledPolls = 0;
-	_hashFailures = 0;
-	_bannedPeers = 0;
-	_lastTransferFailure.clear();
+	CapBulkTransfer_(handle);
 
-	DialManualPeers_(*_fetching);
-	DialNeighbours_(*_fetching);
+	_fetchState.Adopt(handle);
 
-	_fetch = domain::FetchStatus{};
-	_fetch.phase = domain::FetchPhase::Metadata;
-	_fetch.identifier = std::move(identifier);
-	_fetch.stagingFolder = stagingFolder;
+	_dialer.DialManual(handle);
+	DialNeighbours_(handle);
 
 	return {};
 }
 
 domain::FetchStatus TorrentSession::Fetch() const {
-	return _fetch;
+	return _fetchState.Snapshot();
 }
 
 void TorrentSession::Cancel() {
-	if (_fetching != nullptr && _fetching->is_valid() && _session != nullptr) {
-		_session->remove_torrent(*_fetching);
+	const FetchRetirement retirement = _fetchState.Retire();
+
+	if (retirement.toRemove.has_value() && _session != nullptr) {
+		_session->remove_torrent(*retirement.toRemove);
 	}
 
-	_fetching.reset();
-	_prioritised = false;
-	_settledPolls = 0;
-
-	_locator.ClearDestinations();
-	_wanted.clear();
-
-	if (_fetch.Busy()) {
-		_fetch.phase = domain::FetchPhase::Idle;
+	if (retirement.clearNow) {
+		_locator.ClearDestinations();
 	}
 }
 
-void TorrentSession::ApplyFetchPriorities_() {
-	if (_fetching == nullptr || _prioritised || !_fetching->is_valid()) {
-		return;
-	}
-
-	const std::shared_ptr<const libtorrent::torrent_info> info = _fetching->torrent_file();
-	if (info == nullptr) {
-		return;
-	}
-
-	const libtorrent::file_storage& files = info->layout();
-
-	std::vector<libtorrent::download_priority_t> priorities;
-	priorities.reserve(static_cast<std::size_t>(info->num_files()));
-
-	std::uint64_t wantedBytes = 0;
-
-	for (const libtorrent::file_index_t index : files.file_range()) {
-		if (files.pad_file_at(index)) {
-			priorities.push_back(libtorrent::dont_download);
-			continue;
-		}
-
-		const std::string leaf(domain::ChunkFileNaming::LeafOf(files.file_path(index)));
-
-		const bool wanted = _wanted.contains(leaf);
-
-		priorities.push_back(wanted ? libtorrent::default_priority : libtorrent::dont_download);
-
-		if (wanted) {
-			wantedBytes += static_cast<std::uint64_t>(files.file_size(index));
-		}
-	}
-
-	_fetching->prioritize_files(priorities);
-
-	_fetch.wantedBytes = wantedBytes;
-	_fetch.phase = domain::FetchPhase::Downloading;
-	_prioritised = true;
+std::size_t TorrentSession::RegisteredChunkFiles() const {
+	return _locator.Count();
 }
 
-void TorrentSession::RefreshFetch_() {
-	if (_fetching == nullptr || !_fetching->is_valid()) {
+std::size_t TorrentSession::RegisteredDestinations() const {
+	return _locator.DestinationCount();
+}
+
+void TorrentSession::CapBulkTransfer_(libtorrent::torrent_handle& handle) {
+	if (!handle.is_valid()) {
 		return;
 	}
 
-	ApplyFetchPriorities_();
+	handle.set_upload_limit(BULK_RATE_CEILING_BYTES_PER_SECOND);
+	handle.set_download_limit(BULK_RATE_CEILING_BYTES_PER_SECOND);
+}
 
-	const libtorrent::torrent_status status = _fetching->status();
+int TorrentSession::SeededUploadLimit(const std::string_view identifier) const {
+	const std::shared_ptr<libtorrent::torrent_handle> handle = _roster.HandleFor(identifier);
+	return handle != nullptr && handle->is_valid() ? handle->upload_limit() : -1;
+}
 
-	AccumulateRates_(status.download_payload_rate, status.upload_payload_rate);
+int TorrentSession::SeededDownloadLimit(const std::string_view identifier) const {
+	const std::shared_ptr<libtorrent::torrent_handle> handle = _roster.HandleFor(identifier);
+	return handle != nullptr && handle->is_valid() ? handle->download_limit() : -1;
+}
 
-	_fetch.peers = static_cast<std::uint32_t>(status.num_peers);
-	_fetch.hashFailures = _hashFailures;
-	_fetch.bannedPeers = _bannedPeers;
-	_fetch.lastFailure = _lastTransferFailure;
-	_fetch.fetchedBytes = static_cast<std::uint64_t>(status.total_wanted_done);
+int TorrentSession::FetchUploadLimit() const {
+	const std::optional<libtorrent::torrent_handle> active = _fetchState.Active();
+	return active.has_value() && active->is_valid() ? active->upload_limit() : -1;
+}
 
-	const std::int64_t received = status.total_payload_download;
-	const std::int64_t verified = status.total_wanted_done;
+int TorrentSession::FetchDownloadLimit() const {
+	const std::optional<libtorrent::torrent_handle> active = _fetchState.Active();
+	return active.has_value() && active->is_valid() ? active->download_limit() : -1;
+}
 
-	_fetch.inFlightBytes = received > verified
-	                       ? static_cast<std::uint64_t>(received - verified)
-	                       : 0;
+int TorrentSession::ControlUploadLimit() const {
+	return _control != nullptr && _control->is_valid() ? _control->upload_limit() : -1;
+}
 
-	const bool wantedComplete = _fetch.wantedBytes > 0
-	                            && _fetch.fetchedBytes >= _fetch.wantedBytes
-	                            && _fetch.inFlightBytes == 0;
-
-	if (!_prioritised || !(status.is_finished || wantedComplete)) {
-		_settledPolls = 0;
-		return;
-	}
-
-	if (_settledPolls < COMPLETE_CONFIRMATIONS) {
-		++_settledPolls;
-		return;
-	}
-
-	_fetch.phase = domain::FetchPhase::Complete;
+int TorrentSession::ControlDownloadLimit() const {
+	return _control != nullptr && _control->is_valid() ? _control->download_limit() : -1;
 }
 
 void TorrentSession::AccumulateRates_(const int downloadRate, const int uploadRate) {
@@ -676,64 +532,29 @@ void TorrentSession::Poll() {
 	std::vector<libtorrent::alert*> alerts;
 	_session->pop_alerts(&alerts);
 
-	for (const libtorrent::alert* const entry : alerts) {
-		if (const auto* const stats = libtorrent::alert_cast<libtorrent::dht_stats_alert>(entry)) {
-			std::uint64_t nodes = 0;
-			for (const libtorrent::dht_routing_bucket& bucket : stats->routing_table) {
-				nodes += static_cast<std::uint64_t>(bucket.num_nodes);
-			}
-			_status.dhtNodes = nodes;
-			continue;
-		}
+	const AlertOutcome outcome = AlertRouter::Route(alerts, _fetchState);
 
-		if (libtorrent::alert_cast<libtorrent::hash_failed_alert>(entry) != nullptr) {
-			++_hashFailures;
-			_lastTransferFailure = std::string(PEER_SENT_BAD_DATA);
-			continue;
-		}
+	if (outcome.dhtNodes.has_value()) {
+		_status.dhtNodes = *outcome.dhtNodes;
+	}
 
-		if (libtorrent::alert_cast<libtorrent::peer_ban_alert>(entry) != nullptr) {
-			++_bannedPeers;
-			_lastTransferFailure = std::string(PEER_BANNED_BAD_DATA);
-			continue;
-		}
+	if (outcome.clearDestinations) {
+		_locator.ClearDestinations();
+	}
 
-		if (const auto* const unreadable =
-				libtorrent::alert_cast<libtorrent::file_error_alert>(entry)) {
-			_lastTransferFailure = unreadable->error.message();
-			continue;
-		}
+	if (outcome.lastPeerError.has_value()) {
+		_lastPeerError = *outcome.lastPeerError;
+	}
 
-		if (const auto* const broken =
-				libtorrent::alert_cast<libtorrent::torrent_error_alert>(entry)) {
-			_lastTransferFailure = broken->error.message();
-			continue;
-		}
-
-		if (const auto* const dropped =
-				libtorrent::alert_cast<libtorrent::peer_disconnected_alert>(entry)) {
-			const bool refused =
-					dropped->error == boost::asio::error::connection_refused ||
-					dropped->error == boost::asio::error::timed_out;
-
-			const std::string described = dropped->message();
-			if (!refused && described.find(LOOPBACK_ADDRESS) != std::string::npos) {
-				_lastPeerError = dropped->error.message();
-			}
-			continue;
-		}
-
-		if (const auto* const failed =
-				libtorrent::alert_cast<libtorrent::peer_error_alert>(entry)) {
-			_lastPeerError = failed->error.message();
-		}
+	if (outcome.lastTransferFailure.has_value()) {
+		_lastTransferFailure = *outcome.lastTransferFailure;
 	}
 
 	if (_exchange != nullptr) {
 		const bool running = _gossip.running;
 		_gossip = _exchange->Snapshot();
 		_gossip.running = running;
-		_gossip.neighbourDials = _neighbourDials;
+		_gossip.neighbourDials = _dialer.NeighbourDials();
 		_gossip.lastPeerError = _lastPeerError;
 		_gossip.lastFailure = _lastTransferFailure;
 		_gossip.readFailures = _faults.ReadFailures();
@@ -773,7 +594,11 @@ void TorrentSession::Poll() {
 	}
 
 	RefreshEntries_();
-	RefreshFetch_();
+
+	const std::optional<FetchRates> fetchRates = FetchRefresher::Refresh(_fetchState);
+	if (fetchRates.has_value()) {
+		AccumulateRates_(fetchRates->downloadRate, fetchRates->uploadRate);
+	}
 
 	_status.downloadRate = static_cast<std::uint64_t>(_pendingDownloadRate);
 	_status.uploadRate = static_cast<std::uint64_t>(_pendingUploadRate);

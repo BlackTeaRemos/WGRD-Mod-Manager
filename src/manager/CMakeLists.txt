@@ -87,6 +87,15 @@ wgrd_add_module(manager
         service/ModRemovalService.cpp
         install/StagedChunkSource.h
         install/StagedChunkSource.cpp
+        install/StagedFileSeeder.h
+        install/StagedFileSeeder.cpp
+        install/FetchPlanner.h
+        install/FetchPlanner.cpp
+        install/FetchedManifestAdopter.h
+        install/FetchedManifestAdopter.cpp
+        install/InstalledContentAuditor.h
+        install/InstalledContentAuditor.cpp
+        install/InstallErrorText.h
         install/ContentInstaller.h
         install/ContentInstaller.cpp
         manifest/ManifestStore.h

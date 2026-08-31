@@ -1,10 +1,17 @@
 ﻿wgrd_add_tests(downloader
     SOURCES
+        AnnounceExchangeTests.cpp
+        ChannelReserveTests.cpp
         ControlSwarmTests.cpp
         GossipTests.cpp
         PairFetchTests.cpp
         FastCdcChunkerTests.cpp
+        SeedAttestationTests.cpp
+        StorageClassificationTests.cpp
         SwarmTransferTests.cpp
+        TorrentCacheTests.cpp
         VirtualTorrentTests.cpp
         FetchTests.cpp
+        FetchDestinationTests.cpp
+        FetchLifecycleTests.cpp
 )

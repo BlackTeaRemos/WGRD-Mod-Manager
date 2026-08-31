@@ -3,6 +3,7 @@
 #include "domain/types/content/ChunkFileNaming.h"
 
 #include <algorithm>
+#include <limits>
 
 namespace wgrd::downloader {
 namespace {
@@ -74,17 +75,23 @@ std::vector<ChunkLocation> ChunkLocator::Lookup_(
 	return match->second;
 }
 
-void ChunkLocator::RegisterFile(
+bool ChunkLocator::RegisterFile(
 	std::string fileName,
 	const std::filesystem::path& file,
 	const std::uint64_t offset,
 	const std::uint64_t length
 ) {
+	if (length > std::numeric_limits<std::uint32_t>::max()) {
+		return false;
+	}
+
 	const ChunkLocation location{file, offset, static_cast<std::uint32_t>(length)};
 
 	const std::scoped_lock lock(_guard);
 
 	Insert_(_locations, std::move(fileName), location);
+
+	return true;
 }
 
 void ChunkLocator::Register(
@@ -154,17 +161,23 @@ std::size_t ChunkLocator::Count() const {
 	return _locations.size();
 }
 
-void ChunkLocator::RegisterDestination(
+bool ChunkLocator::RegisterDestination(
 	std::string fileName,
 	const std::filesystem::path& file,
 	const std::uint64_t offset,
 	const std::uint64_t length
 ) {
+	if (length > std::numeric_limits<std::uint32_t>::max()) {
+		return false;
+	}
+
 	const ChunkLocation location{file, offset, static_cast<std::uint32_t>(length)};
 
 	const std::scoped_lock lock(_guard);
 
 	Insert_(_destinations, std::move(fileName), location);
+
+	return true;
 }
 
 std::vector<ChunkLocation> ChunkLocator::FindDestinations(const std::string_view chunkFileName) const {

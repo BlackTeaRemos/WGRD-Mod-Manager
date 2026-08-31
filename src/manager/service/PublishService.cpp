@@ -119,7 +119,8 @@ PublishService::PublishService(
 	const domain::IChunkSetTorrentBuilder& torrentBuilder,
 	domain::IAnnounceReceiver& receiver,
 	const domain::IAnnounceCatalogue& catalogue,
-	domain::IKeyRegistry& registry
+	domain::IKeyRegistry& registry,
+	domain::ISeedingService* seeding
 )
 	: _modsDirectory(std::move(modsDirectory))
 	, _dataDirectory(std::move(dataDirectory))
@@ -128,6 +129,7 @@ PublishService::PublishService(
 	, _receiver(&receiver)
 	, _catalogue(&catalogue)
 	, _registry(&registry)
+	, _seeding(seeding)
 	, _keyStore()
 	, _builder(chunker, hasher, pathPolicy)
 	, _codec(pathPolicy)
@@ -492,6 +494,14 @@ std::expected<domain::PublishedRelease, domain::PublishError> PublishService::Pu
 	}
 
 	_versions.insert_or_assign(identifier, version);
+
+	if (_seeding != nullptr) {
+		_seeding->AttestContent(
+			*manifest,
+			_modsDirectory / folder,
+			_store.PathFor(manifestDigest)
+		);
+	}
 
 	const domain::PublishedRelease release{
 		identifier, manifest->ModName(), version, manifest->TotalBytes(), manifest->ChunkCount(), manifest->Files().size(), manifestDigest

@@ -36,6 +36,10 @@ wgrd_add_module(gui
         screens/TransfersScreen.cpp
         screens/ProfilesScreen.h
         screens/ProfilesScreen.cpp
+        screens/PublishKeyStep.h
+        screens/PublishKeyStep.cpp
+        screens/PublishSignStep.h
+        screens/PublishSignStep.cpp
         screens/PublishScreen.h
         screens/PublishScreen.cpp
         screens/Screens.h

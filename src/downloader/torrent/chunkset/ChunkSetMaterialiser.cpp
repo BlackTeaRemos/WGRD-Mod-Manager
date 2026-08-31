@@ -13,7 +13,6 @@ namespace {
 	struct SourceRange {
 		std::string path;
 		std::uint64_t offset;
-		std::uint32_t length;
 	};
 
 	std::map<std::string, SourceRange> IndexSources(const domain::ModManifest& manifest) {
@@ -21,7 +20,7 @@ namespace {
 
 		for (const domain::ManifestFile& file : manifest.Files()) {
 			for (const domain::ManifestChunk& chunk : file.chunks) {
-				index.try_emplace(chunk.digest.ToHex(), SourceRange{file.path, chunk.offset, chunk.length});
+				index.try_emplace(chunk.digest.ToHex(), SourceRange{file.path, chunk.offset});
 			}
 		}
 

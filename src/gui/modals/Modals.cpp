@@ -187,7 +187,7 @@ void Modals::DrawSettings_(const ImVec2 frameOrigin, const float frameWidth, App
 
 	cursorY = DrawTrust_(origin, cursorY, services.registry);
 
-	cursorY = DrawUpdates_(origin, cursorY, state, services.updates);
+	DrawUpdates_(origin, cursorY, state, services.updates);
 
 	if (design::Button(
 		ImVec2(origin.x + SETTINGS_WIDTH - 60.0f, origin.y + height - 26.0f),

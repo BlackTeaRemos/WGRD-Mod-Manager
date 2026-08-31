@@ -259,7 +259,7 @@ void ProfilesScreen::DrawDetail_(
 			10.0f
 		);
 
-		cursorY = DrawGameProfiles_(area, cursorY + 18.0f, profiles);
+		(void)DrawGameProfiles_(area, cursorY + 18.0f, profiles);
 		return;
 	}
 

@@ -5,6 +5,7 @@
 #include "domain/interfaces/content/IContentHasher.h"
 #include "domain/interfaces/content/IPayloadPathPolicy.h"
 #include "domain/interfaces/services/IPublishService.h"
+#include "domain/interfaces/services/ISeedingService.h"
 #include "domain/interfaces/trust/IAnnounceCatalogue.h"
 #include "domain/interfaces/trust/IAnnounceReceiver.h"
 #include "domain/interfaces/trust/IKeyRegistry.h"
@@ -38,7 +39,8 @@ public:
 		const domain::IChunkSetTorrentBuilder& torrentBuilder,
 		domain::IAnnounceReceiver& receiver,
 		const domain::IAnnounceCatalogue& catalogue,
-		domain::IKeyRegistry& registry
+		domain::IKeyRegistry& registry,
+		domain::ISeedingService* seeding = nullptr
 	);
 
 	~PublishService() override;
@@ -116,6 +118,7 @@ private:
 	domain::IAnnounceReceiver* _receiver;
 	const domain::IAnnounceCatalogue* _catalogue;
 	domain::IKeyRegistry* _registry;
+	domain::ISeedingService* _seeding;
 
 	SigningKeyStore _keyStore;
 	ManifestBuilder _builder;

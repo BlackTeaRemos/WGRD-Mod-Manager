@@ -60,11 +60,28 @@ PublisherFingerprint MakeFingerprint(const std::uint8_t seed) {
 	return *fingerprint;
 }
 
-std::vector<std::uint8_t> MakeRecord(const std::uint8_t seed) {
+std::vector<std::uint8_t> MakeRecord(const AnnounceSummary& summary, const std::uint8_t seed) {
 	std::vector<std::uint8_t> record(AnnounceWireCodec::RECORD_BYTES);
 
 	for (std::size_t index = 0; index < record.size(); ++index) {
 		record[index] = static_cast<std::uint8_t>((index * 7 + seed) & 0xFF);
+	}
+
+	const auto fingerprint = summary.publisher.Bytes();
+	for (std::size_t position = 0; position < AnnounceWireCodec::FINGERPRINT_BYTES; ++position) {
+		record[AnnounceWireCodec::RECORD_FINGERPRINT_OFFSET + position] = fingerprint[position];
+	}
+
+	for (std::size_t position = 0; position < AnnounceWireCodec::MOD_NAME_BYTES; ++position) {
+		const std::uint8_t value = position < summary.modName.size()
+		                           ? static_cast<std::uint8_t>(summary.modName[position])
+		                           : 0;
+		record[AnnounceWireCodec::RECORD_MOD_NAME_OFFSET + position] = value;
+	}
+
+	for (std::size_t position = 0; position < AnnounceWireCodec::VERSION_BYTES; ++position) {
+		record[AnnounceWireCodec::RECORD_VERSION_OFFSET + position] =
+				static_cast<std::uint8_t>((summary.version >> (position * 8)) & 0xFF);
 	}
 
 	return record;
@@ -166,7 +183,7 @@ TEST_CASE("two live sessions gossip over loopback", "[.live]") {
 	MemoryReceiver leecherReceiver;
 
 	const AnnounceSummary summary{MakeFingerprint(0x31), "live_maps", 5};
-	const std::vector<std::uint8_t> record = MakeRecord(0x77);
+	const std::vector<std::uint8_t> record = MakeRecord(summary, 0x77);
 
 	seederCatalogue.Hold(summary, record);
 
@@ -254,7 +271,7 @@ TEST_CASE("one process gossips with another copy of itself", "[.pair]") {
 	const AnnounceSummary summary{MakeFingerprint(0x41), "pair_maps", 9};
 
 	if (seeding) {
-		catalogue.Hold(summary, MakeRecord(0x99));
+		catalogue.Hold(summary, MakeRecord(summary, 0x99));
 	}
 
 	TorrentSession session(
@@ -304,7 +321,7 @@ TEST_CASE("gossip finds a neighbour on loopback without dialling") {
 
 	const AnnounceSummary summary{MakeFingerprint(0x21), "auto_maps", 2};
 	const std::vector<AnnounceSummary> holdings = {summary};
-	const std::vector<std::uint8_t> record = MakeRecord(0x55);
+	const std::vector<std::uint8_t> record = MakeRecord(summary, 0x55);
 
 	seederCatalogue.Hold(summary, record);
 
@@ -356,7 +373,7 @@ TEST_CASE("gossip carries a record between two sessions") {
 	MemoryReceiver leecherReceiver;
 
 	const AnnounceSummary summary{MakeFingerprint(0x11), "angel_maps", 4};
-	const std::vector<std::uint8_t> record = MakeRecord(0x33);
+	const std::vector<std::uint8_t> record = MakeRecord(summary, 0x33);
 
 	seederCatalogue.Hold(summary, record);
 

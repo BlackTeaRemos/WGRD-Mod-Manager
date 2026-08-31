@@ -40,6 +40,8 @@ enum class FetchError {
 	, NothingWanted
 	, MagnetRejected
 	, SessionRejected
+	, AlreadyPresent
+	, DestinationRejected
 };
 
 class IChunkFetcher {

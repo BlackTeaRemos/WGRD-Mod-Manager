@@ -5,6 +5,7 @@
 #include "domain/types/status/GossipStatus.h"
 #include "downloader/announce/PeerAnnounceBudget.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <mutex>
@@ -16,6 +17,8 @@
 namespace wgrd::downloader {
 class AnnounceExchange {
 public:
+	static constexpr std::size_t MAXIMUM_TRACKED_PEERS = 512;
+
 	AnnounceExchange(
 		domain::IAnnounceCatalogue& catalogue,
 		domain::IAnnounceReceiver& receiver
@@ -53,6 +56,11 @@ public:
 	[[nodiscard]] domain::GossipStatus Snapshot() const;
 
 private:
+	[[nodiscard]] PeerAnnounceBudget* EnsureBudget_(
+		const std::string& peer,
+		PeerAnnounceBudget::Clock::time_point now
+	);
+
 	domain::IAnnounceCatalogue* _catalogue;
 	domain::IAnnounceReceiver* _receiver;
 

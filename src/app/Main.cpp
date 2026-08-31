@@ -35,6 +35,7 @@ namespace {
 constexpr std::string_view DATA_FOLDER = ".wgrdmm";
 constexpr std::string_view REGISTRY_FOLDER = "registry";
 constexpr std::string_view CONTROL_FOLDER = "control";
+constexpr std::string_view TORRENT_FOLDER = "torrents";
 constexpr std::string_view ANNOUNCE_FOLDER = "announces";
 constexpr std::string_view PROFILE_FOLDER = "profiles";
 constexpr std::string_view INSTALLED_FOLDER = "installed";
@@ -89,6 +90,8 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 	if (installation) {
 		const std::filesystem::path dataDirectory = installation->modsDirectory / DATA_FOLDER;
 
+		swarm.UseTorrentCache(dataDirectory / TORRENT_FOLDER);
+
 		orderService = std::make_unique<wgrd::manager::OrderService>(*installation);
 
 		profileService = std::make_unique<wgrd::manager::ProfileService>(
@@ -123,7 +126,8 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 			torrentBuilder,
 			*receiver,
 			*receiver,
-			*registry
+			*registry,
+			&swarm
 		);
 
 		installedStore = std::make_unique<wgrd::manager::InstalledReleaseStore>(
@@ -151,7 +155,8 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 			manifestBuilder,
 			hasher,
 			swarm,
-			*installedStore
+			*installedStore,
+			&swarm
 		);
 
 		removalService = std::make_unique<wgrd::manager::ModRemovalService>(

@@ -16,6 +16,8 @@
 #include "manager/trust/ManifestAuthenticator.h"
 #include "manager/trust/RevocationSignable.h"
 
+#include "domain/types/content/ChunkFileNaming.h"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <chrono>
@@ -27,6 +29,7 @@
 #include <thread>
 
 namespace {
+constexpr std::string_view LOOPBACK = "127.0.0.1:0";
 constexpr std::string_view PUBLISHER = "tester";
 constexpr std::string_view PASSPHRASE = "correcthorse";
 constexpr std::string_view MOD_FOLDER = "testmod";
@@ -66,7 +69,7 @@ void WritePayload(const std::filesystem::path& target, const std::uint64_t bytes
 }
 }
 
-TEST_CASE("publishing a mod starts seeding its chunk set") {
+TEST_CASE("catalog refresh seeds a published chunk set") {
 	const TemporaryTree tree("publish");
 
 	const std::filesystem::path modsDirectory = tree.Root() / "Mods";
@@ -95,8 +98,8 @@ TEST_CASE("publishing a mod starts seeding its chunk set") {
 
 	wgrd::downloader::TorrentSession swarm(
 		modsDirectory,
-		std::string(wgrd::downloader::TorrentSession::PUBLIC_INTERFACES),
-		true
+		std::string(LOOPBACK),
+		false
 	);
 
 	wgrd::manager::PublishService publishService(
@@ -108,7 +111,8 @@ TEST_CASE("publishing a mod starts seeding its chunk set") {
 		torrentBuilder,
 		receiver,
 		receiver,
-		registry
+		registry,
+		&swarm
 	);
 
 	const wgrd::manager::InstalledReleaseStore installedStore(dataDirectory / "installed");
@@ -140,6 +144,12 @@ TEST_CASE("publishing a mod starts seeding its chunk set") {
 	INFO("publish message " << publishService.LastMessage());
 	REQUIRE(published.has_value());
 
+	const std::filesystem::path stampPath =
+			dataDirectory / "torrents" / (published->manifestDigest + ".stamp");
+
+	REQUIRE(std::filesystem::exists(stampPath));
+	REQUIRE(std::filesystem::file_size(stampPath) > 0);
+
 	catalogService.Refresh();
 
 	REQUIRE(catalogService.Rows().size() == 1);
@@ -166,13 +176,14 @@ TEST_CASE("publishing a mod starts seeding its chunk set") {
 	REQUIRE(decoded.has_value());
 
 	REQUIRE(row.manifestHeld);
+	REQUIRE(row.seedFault.empty());
 
 	REQUIRE(swarm.Enabled());
 	REQUIRE(swarm.Entries().size() == 1);
 
 	REQUIRE(swarm.Entries()[0].modName == published->modName);
 
-	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
 
 	bool seeding = false;
 
@@ -184,10 +195,34 @@ TEST_CASE("publishing a mod starts seeding its chunk set") {
 			break;
 		}
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
 
 	REQUIRE(seeding);
+
+	std::size_t looseChunkFiles = 0;
+
+	std::error_code walking;
+	std::filesystem::recursive_directory_iterator walker(modsDirectory, walking);
+	const std::filesystem::recursive_directory_iterator walkEnd;
+
+	for (; walker != walkEnd; walker.increment(walking)) {
+		if (walking) {
+			break;
+		}
+
+		if (walker->path().extension() == wgrd::domain::ChunkFileNaming::SUFFIX) {
+			++looseChunkFiles;
+		}
+	}
+
+	REQUIRE(looseChunkFiles == 0);
+
+	REQUIRE(installedStore.LoadAll().empty());
+
+	catalogService.Refresh();
+
+	REQUIRE(catalogService.Verified(published->modName));
 
 	REQUIRE(installedStore.Save(
 		wgrd::domain::InstalledRelease{
