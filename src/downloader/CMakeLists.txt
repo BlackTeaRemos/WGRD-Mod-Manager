@@ -1,4 +1,4 @@
-find_package(LibtorrentRasterbar CONFIG REQUIRED)
+﻿find_package(LibtorrentRasterbar CONFIG REQUIRED)
 
 wgrd_add_module(downloader
     SOURCES
@@ -37,6 +37,8 @@ wgrd_add_module(downloader
         storage/SeedAttestations.cpp
         storage/SeedStampStore.h
         storage/SeedStampStore.cpp
+        storage/StorageBacklog.h
+        storage/StorageBacklog.cpp
         storage/StorageFaults.h
         storage/StorageFaults.cpp
         storage/StorageJobQueue.h

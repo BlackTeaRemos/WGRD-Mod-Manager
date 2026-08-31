@@ -10,6 +10,7 @@
 #include "downloader/storage/ChunkLocator.h"
 #include "downloader/storage/ModFolderStamp.h"
 #include "downloader/storage/SeedAttestations.h"
+#include "downloader/storage/StorageBacklog.h"
 #include "downloader/storage/SeedStampStore.h"
 #include "downloader/storage/StorageFaults.h"
 #include "downloader/torrent/build/TorrentCache.h"
@@ -46,6 +47,7 @@ public:
 	static constexpr std::chrono::milliseconds STATUS_POLL_INTERVAL{200};
 	static constexpr int LOCAL_ANNOUNCE_SECONDS = 30;
 	static constexpr std::string_view TORRENT_CACHE_FOLDER = ".wgrdmm/torrents";
+	static constexpr std::chrono::milliseconds WRITE_DRAIN_TIMEOUT{30000};
 	static constexpr int CONTROL_CHANNEL_RESERVE_BYTES_PER_SECOND = 512 * 1024;
 	static constexpr int BULK_LINK_BUDGET_BYTES_PER_SECOND = 8 * 1024 * 1024;
 	static constexpr int BULK_RATE_CEILING_BYTES_PER_SECOND =
@@ -147,6 +149,7 @@ private:
 
 	ChunkLocator _locator;
 	StorageFaults _faults;
+	StorageBacklog _backlog;
 	SeedAttestations _attestations;
 	SeedStampStore _stamps;
 	TorrentCache _torrents;

@@ -65,7 +65,8 @@ public:
 		std::uint32_t peers,
 		std::uint64_t fetchedBytes,
 		std::uint64_t inFlightBytes,
-		bool finished
+		bool finished,
+		bool writesSettled
 	);
 
 private:

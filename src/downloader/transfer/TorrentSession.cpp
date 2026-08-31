@@ -59,7 +59,8 @@ TorrentSession::TorrentSession(
 					_locator,
 					context,
 					_faults,
-					_attestations
+					_attestations,
+					_backlog
 				);
 			};
 
@@ -463,6 +464,9 @@ domain::FetchStatus TorrentSession::Fetch() const {
 }
 
 void TorrentSession::Cancel() {
+	const bool drained = _backlog.AwaitDrain(WRITE_DRAIN_TIMEOUT);
+	(void)drained;
+
 	const FetchRetirement retirement = _fetchState.Retire();
 
 	if (retirement.toRemove.has_value() && _session != nullptr) {
@@ -595,7 +599,8 @@ void TorrentSession::Poll() {
 
 	RefreshEntries_();
 
-	const std::optional<FetchRates> fetchRates = FetchRefresher::Refresh(_fetchState);
+	const std::optional<FetchRates> fetchRates =
+			FetchRefresher::Refresh(_fetchState, _backlog.Pending() == 0);
 	if (fetchRates.has_value()) {
 		AccumulateRates_(fetchRates->downloadRate, fetchRates->uploadRate);
 	}

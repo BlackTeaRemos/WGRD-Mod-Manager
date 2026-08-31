@@ -180,7 +180,8 @@ void FetchState::Update(
 	const std::uint32_t peers,
 	const std::uint64_t fetchedBytes,
 	const std::uint64_t inFlightBytes,
-	const bool finished
+	const bool finished,
+	const bool writesSettled
 ) {
 	const std::scoped_lock lock(_guard);
 
@@ -196,7 +197,7 @@ void FetchState::Update(
 	                            && _fetch.fetchedBytes >= _fetch.wantedBytes
 	                            && _fetch.inFlightBytes == 0;
 
-	if (!_prioritised || !(finished || wantedComplete)) {
+	if (!_prioritised || !writesSettled || !(finished || wantedComplete)) {
 		_settledPolls = 0;
 		return;
 	}

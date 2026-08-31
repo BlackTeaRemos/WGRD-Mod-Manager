@@ -2,6 +2,7 @@
 
 #include "downloader/storage/ChunkLocator.h"
 #include "downloader/storage/SeedAttestations.h"
+#include "downloader/storage/StorageBacklog.h"
 #include "downloader/storage/StorageFaults.h"
 
 #include <libtorrent/session_params.hpp>
@@ -66,6 +67,7 @@ private:
 
 	StorageFaults _faults;
 	SeedAttestations _attestations;
+	StorageBacklog _backlog;
 	std::unique_ptr<libtorrent::session> _session;
 	std::unique_ptr<libtorrent::torrent_handle> _handle;
 	std::filesystem::path _savePath;

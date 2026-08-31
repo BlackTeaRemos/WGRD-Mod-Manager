@@ -19,6 +19,7 @@
 using wgrd::downloader::ChunkLocator;
 using wgrd::downloader::InstalledFolderStorage;
 using wgrd::downloader::SeedAttestations;
+using wgrd::downloader::StorageBacklog;
 using wgrd::downloader::StorageFaults;
 
 namespace {
@@ -179,12 +180,13 @@ TEST_CASE("seed read ignores overlapping fetch destinations") {
 	libtorrent::io_context context;
 	StorageFaults faults;
 	SeedAttestations attestations;
+	StorageBacklog backlog;
 	ChunkLocator locator;
 
 	REQUIRE(locator.RegisterFile(chunkFileName, installedFile, 0, CHUNK_BYTES));
 	REQUIRE(locator.RegisterDestination(chunkFileName, destinationFile, 0, CHUNK_BYTES));
 
-	InstalledFolderStorage storage(locator, context, faults, attestations);
+	InstalledFolderStorage storage(locator, context, faults, attestations, backlog);
 
 	const libtorrent::file_storage layout =
 			MakeSingleChunkLayout("seed_mod", chunkFileName, CHUNK_BYTES);
@@ -222,9 +224,10 @@ TEST_CASE("absent held chunk reports missing without a fault") {
 	libtorrent::io_context context;
 	StorageFaults faults;
 	SeedAttestations attestations;
+	StorageBacklog backlog;
 	ChunkLocator locator;
 
-	InstalledFolderStorage storage(locator, context, faults, attestations);
+	InstalledFolderStorage storage(locator, context, faults, attestations, backlog);
 
 	const libtorrent::file_storage layout =
 			MakeSingleChunkLayout("fetch_mod", chunkFileName, CHUNK_BYTES);
@@ -269,11 +272,12 @@ TEST_CASE("broken installed location counts a fault") {
 	libtorrent::io_context context;
 	StorageFaults faults;
 	SeedAttestations attestations;
+	StorageBacklog backlog;
 	ChunkLocator locator;
 
 	REQUIRE(locator.RegisterFile(chunkFileName, missingFile, 0, CHUNK_BYTES));
 
-	InstalledFolderStorage storage(locator, context, faults, attestations);
+	InstalledFolderStorage storage(locator, context, faults, attestations, backlog);
 
 	const libtorrent::file_storage layout =
 			MakeSingleChunkLayout("seed_mod", chunkFileName, CHUNK_BYTES);
@@ -331,11 +335,12 @@ TEST_CASE("seed check skips hashing when resume attests every piece") {
 	libtorrent::io_context context;
 	StorageFaults faults;
 	SeedAttestations attestations;
+	StorageBacklog backlog;
 	ChunkLocator locator;
 
 	REQUIRE(locator.RegisterFile(chunkFileName, installedFile, 0, CHUNK_BYTES));
 
-	InstalledFolderStorage storage(locator, context, faults, attestations);
+	InstalledFolderStorage storage(locator, context, faults, attestations, backlog);
 
 	const libtorrent::file_storage layout =
 			MakeSingleChunkLayout("seed_mod", chunkFileName, CHUNK_BYTES);

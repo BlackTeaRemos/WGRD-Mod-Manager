@@ -3,6 +3,7 @@
 #include "downloader/storage/ChunkLocator.h"
 #include "downloader/storage/ChunkRangeIo.h"
 #include "downloader/storage/SeedAttestations.h"
+#include "downloader/storage/StorageBacklog.h"
 #include "downloader/storage/StorageFaults.h"
 #include "downloader/storage/StorageJobQueue.h"
 
@@ -27,7 +28,8 @@ public:
 		const ChunkLocator& locator,
 		libtorrent::io_context& context,
 		StorageFaults& faults,
-		const SeedAttestations& attestations
+		const SeedAttestations& attestations,
+		StorageBacklog& backlog
 	);
 
 	~InstalledFolderStorage() override;
@@ -161,6 +163,7 @@ private:
 	libtorrent::io_context* _context;
 	StorageFaults* _faults;
 	const SeedAttestations* _attestations;
+	StorageBacklog* _backlog;
 	ChunkRangeIo _rangeIo;
 	mutable std::mutex _guard;
 	StorageJobQueue _queue;

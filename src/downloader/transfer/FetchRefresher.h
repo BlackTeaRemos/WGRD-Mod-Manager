@@ -12,7 +12,7 @@ struct FetchRates {
 
 class FetchRefresher {
 public:
-	[[nodiscard]] static std::optional<FetchRates> Refresh(FetchState& fetchState);
+	[[nodiscard]] static std::optional<FetchRates> Refresh(FetchState& fetchState, bool writesSettled);
 
 private:
 	static void ApplyPriorities_(FetchState& fetchState, libtorrent::torrent_handle& handle);

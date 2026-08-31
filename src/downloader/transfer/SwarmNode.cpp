@@ -79,7 +79,8 @@ SwarmNode::SwarmNode(std::filesystem::path savePath, const ChunkLocator& locator
 					locator,
 					context,
 					_faults,
-					_attestations
+					_attestations,
+					_backlog
 				);
 			};
 

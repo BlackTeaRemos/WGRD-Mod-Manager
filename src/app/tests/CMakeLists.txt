@@ -1,6 +1,7 @@
 find_package(Catch2 CONFIG REQUIRED)
 
 add_executable(wgrd_integration_tests
+    PublishInstallRoundTripTests.cpp
     PublishSeedingTests.cpp
 )
 
