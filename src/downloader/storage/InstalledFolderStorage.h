@@ -1,6 +1,7 @@
 #pragma once
 
 #include "downloader/storage/ChunkLocator.h"
+#include "downloader/storage/StorageFaults.h"
 
 #include <libtorrent/disk_buffer_holder.hpp>
 #include <libtorrent/disk_interface.hpp>
@@ -21,7 +22,11 @@ class InstalledFolderStorage final
 		: public libtorrent::disk_interface,
 		  public libtorrent::buffer_allocator_interface {
 public:
-	InstalledFolderStorage(const ChunkLocator& locator, libtorrent::io_context& context);
+	InstalledFolderStorage(
+		const ChunkLocator& locator,
+		libtorrent::io_context& context,
+		StorageFaults& faults
+	);
 
 	~InstalledFolderStorage() override;
 
@@ -161,6 +166,7 @@ private:
 
 	const ChunkLocator* _locator;
 	libtorrent::io_context* _context;
+	StorageFaults* _faults;
 	mutable std::mutex _guard;
 	mutable std::mutex _jobGuard;
 	std::condition_variable _jobSignal;

@@ -19,7 +19,10 @@ struct GossipStatus {
 	std::uint64_t recordsRejected = 0;
 	std::uint64_t peersThrottled = 0;
 	std::uint64_t protocolViolations = 0;
+	std::uint64_t readFailures = 0;
+	std::uint64_t writeFailures = 0;
 	std::string lastPeerError;
+	std::string lastFailure;
 
 	bool operator==(const GossipStatus& other) const = default;
 };

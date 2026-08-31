@@ -104,7 +104,7 @@ TorrentSession::TorrentSession(
 		const libtorrent::settings_interface&,
 		libtorrent::counters&
 	) -> std::unique_ptr<libtorrent::disk_interface> {
-				return std::make_unique<InstalledFolderStorage>(_locator, context);
+				return std::make_unique<InstalledFolderStorage>(_locator, context, _faults);
 			};
 
 	_session = std::make_unique<libtorrent::session>(std::move(parameters));
@@ -735,6 +735,9 @@ void TorrentSession::Poll() {
 		_gossip.running = running;
 		_gossip.neighbourDials = _neighbourDials;
 		_gossip.lastPeerError = _lastPeerError;
+		_gossip.lastFailure = _lastTransferFailure;
+		_gossip.readFailures = _faults.ReadFailures();
+		_gossip.writeFailures = _faults.WriteFailures();
 		_gossip.controlValid = _control != nullptr && _control->is_valid();
 		_gossip.controlPeers = _controlPeers;
 		_gossip.controlState = _controlState;

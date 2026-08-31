@@ -62,15 +62,16 @@ SwarmNode::SwarmNode(std::filesystem::path savePath, const ChunkLocator& locator
 	, _handle(nullptr)
 	, _savePath(std::move(savePath))
 	, _listenPort(0)
+	, _faults()
 	, _cacheFlushed(false) {
 	libtorrent::session_params parameters(BuildLocalSettings());
 
-	parameters.disk_io_constructor = [&locator](
+	parameters.disk_io_constructor = [&locator, this](
 		libtorrent::io_context& context,
 		const libtorrent::settings_interface&,
 		libtorrent::counters&
 	) -> std::unique_ptr<libtorrent::disk_interface> {
-				return std::make_unique<InstalledFolderStorage>(locator, context);
+				return std::make_unique<InstalledFolderStorage>(locator, context, _faults);
 			};
 
 	_session = std::make_unique<libtorrent::session>(std::move(parameters));

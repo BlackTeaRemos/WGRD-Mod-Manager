@@ -72,10 +72,12 @@ namespace {
 
 InstalledFolderStorage::InstalledFolderStorage(
 	const ChunkLocator& locator,
-	libtorrent::io_context& context
+	libtorrent::io_context& context,
+	StorageFaults& faults
 )
 	: _locator(&locator)
 	, _context(&context)
+	, _faults(&faults)
 	, _guard()
 	, _jobGuard()
 	, _jobSignal()
@@ -342,6 +344,8 @@ void InstalledFolderStorage::async_read(
 			if (!ReadRange_(storage, request.piece, request.start, request.length, buffer)) {
 				delete[] buffer;
 
+				_faults->RecordReadFailure();
+
 				Complete_([handler]() mutable {
 						handler(libtorrent::disk_buffer_holder(), ReadFailure());
 					}
@@ -372,6 +376,10 @@ bool InstalledFolderStorage::async_write(
 		[this, storage, request, payload = std::move(payload), handler = std::move(handler)]() mutable {
 			const bool written =
 					WriteRange_(storage, request.piece, request.start, request.length, payload.data());
+
+			if (!written) {
+				_faults->RecordWriteFailure();
+			}
 
 			Complete_([handler, written]() mutable {
 					handler(written ? libtorrent::storage_error() : ReadFailure());
@@ -423,6 +431,8 @@ void InstalledFolderStorage::async_hash(
 				);
 
 				if (!ReadRange_(storage, piece, offset, length, block.data())) {
+					_faults->RecordReadFailure();
+
 					Complete_([handler, piece]() mutable {
 							handler(piece, libtorrent::sha1_hash(), ReadFailure());
 						}
@@ -493,6 +503,8 @@ void InstalledFolderStorage::async_hash2(
 			std::vector<char> block(static_cast<std::size_t>(length));
 
 			if (!ReadRange_(storage, piece, offset, length, block.data())) {
+				_faults->RecordReadFailure();
+
 				Complete_([handler, piece]() mutable {
 						handler(piece, libtorrent::sha256_hash(), ReadFailure());
 					}

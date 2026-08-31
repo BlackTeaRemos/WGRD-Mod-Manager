@@ -153,6 +153,28 @@ float TransfersScreen::DrawGossip_(
 		);
 	}
 
+	if (status.readFailures > 0 || status.writeFailures > 0) {
+		design::TextAt(
+			ImVec2(area.origin.x + 620.0f, bodyY + 19.0f),
+			std::format(
+				text::transfers::DISK_FAULT_FORMAT,
+				status.readFailures,
+				status.writeFailures
+			),
+			tokens::FAILURE,
+			10.0f
+		);
+	}
+
+	if (!status.lastFailure.empty()) {
+		design::TextAt(
+			ImVec2(area.origin.x + 300.0f, bodyY + 19.0f),
+			std::string(text::transfers::TRANSFER_FAULT_PREFIX) + status.lastFailure,
+			tokens::FAILURE,
+			10.0f
+		);
+	}
+
 	const float bottom = bodyY + 34.0f;
 	design::HorizontalRule(area.origin.x, area.origin.x + area.width, bottom, tokens::BORDER_SUBTLE);
 

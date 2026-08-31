@@ -8,6 +8,7 @@
 #include "domain/interfaces/trust/IAnnounceReceiver.h"
 #include "downloader/announce/AnnounceExchange.h"
 #include "downloader/storage/ChunkLocator.h"
+#include "downloader/storage/StorageFaults.h"
 
 #include <chrono>
 #include <cstdint>
@@ -124,6 +125,7 @@ private:
 	void RefreshFetch_();
 
 	ChunkLocator _locator;
+	StorageFaults _faults;
 	std::unique_ptr<AnnounceExchange> _exchange;
 	std::unique_ptr<libtorrent::session> _session;
 	std::unique_ptr<libtorrent::torrent_handle> _control;

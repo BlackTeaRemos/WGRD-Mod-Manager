@@ -25,6 +25,8 @@ wgrd_add_module(downloader
         storage/ChunkLocator.cpp
         storage/InstalledFolderStorage.h
         storage/InstalledFolderStorage.cpp
+        storage/StorageFaults.h
+        storage/StorageFaults.cpp
         torrent/build/ChunkMerkleHasher.h
         torrent/build/ChunkMerkleHasher.cpp
         torrent/build/VirtualChunkSetTorrent.h
