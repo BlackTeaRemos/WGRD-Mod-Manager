@@ -60,7 +60,8 @@ TorrentSession::TorrentSession(
 					context,
 					_faults,
 					_attestations,
-					_backlog
+					_backlog,
+					_handles
 				);
 			};
 
@@ -467,6 +468,8 @@ domain::FetchStatus TorrentSession::Fetch() const {
 void TorrentSession::Cancel() {
 	const bool drained = _backlog.AwaitDrain(WRITE_DRAIN_TIMEOUT);
 	(void)drained;
+
+	_handles.Clear();
 
 	const FetchRetirement retirement = _fetchState.Retire();
 

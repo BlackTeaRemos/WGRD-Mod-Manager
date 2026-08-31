@@ -29,7 +29,8 @@ public:
 		libtorrent::io_context& context,
 		StorageFaults& faults,
 		const SeedAttestations& attestations,
-		StorageBacklog& backlog
+		StorageBacklog& backlog,
+		const OpenFileCache& handles
 	);
 
 	~InstalledFolderStorage() override;

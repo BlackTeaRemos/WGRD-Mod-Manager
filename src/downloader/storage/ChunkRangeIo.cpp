@@ -1,15 +1,14 @@
-#include "downloader/storage/ChunkRangeIo.h"
+﻿#include "downloader/storage/ChunkRangeIo.h"
 
 #include <libtorrent/error_code.hpp>
 
 #include <algorithm>
-#include <fstream>
-#include <system_error>
 #include <vector>
 
 namespace wgrd::downloader {
-ChunkRangeIo::ChunkRangeIo(const ChunkLocator& locator)
-	: _locator(&locator) {}
+ChunkRangeIo::ChunkRangeIo(const ChunkLocator& locator, const OpenFileCache& handles)
+	: _locator(&locator)
+	, _handles(&handles) {}
 
 libtorrent::storage_error ChunkRangeIo::IoFailure() {
 	libtorrent::storage_error failure;
@@ -46,26 +45,12 @@ bool ChunkRangeIo::WriteFileRange_(
 	const std::uint64_t offset,
 	const std::int64_t length,
 	const char* source
-) {
-	std::error_code failure;
-	std::filesystem::create_directories(target.parent_path(), failure);
+) const {
+	return _handles->Write(target, offset, length, source);
+}
 
-	if (!std::filesystem::exists(target, failure)) {
-		std::ofstream created(target, std::ios::binary);
-		if (!created) {
-			return false;
-		}
-	}
-
-	std::fstream output(target, std::ios::binary | std::ios::in | std::ios::out);
-	if (!output) {
-		return false;
-	}
-
-	output.seekp(static_cast<std::streamoff>(offset));
-	output.write(source, length);
-
-	return static_cast<bool>(output);
+void ChunkRangeIo::ReleaseHandles() const {
+	_handles->Clear();
 }
 
 bool ChunkRangeIo::ReadFileRange_(
@@ -73,16 +58,8 @@ bool ChunkRangeIo::ReadFileRange_(
 	const std::uint64_t offset,
 	const std::int64_t length,
 	char* target
-) {
-	std::ifstream input(source, std::ios::binary);
-	if (!input) {
-		return false;
-	}
-
-	input.seekg(static_cast<std::streamoff>(offset));
-	input.read(target, length);
-
-	return input.gcount() == length;
+) const {
+	return _handles->Read(source, offset, length, target);
 }
 
 ReadOutcome ChunkRangeIo::Read(

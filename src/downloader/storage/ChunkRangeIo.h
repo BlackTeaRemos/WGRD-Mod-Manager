@@ -1,6 +1,7 @@
 #pragma once
 
 #include "downloader/storage/ChunkLocator.h"
+#include "downloader/storage/OpenFileCache.h"
 
 #include <libtorrent/file_storage.hpp>
 #include <libtorrent/storage_defs.hpp>
@@ -22,7 +23,7 @@ enum class ReadOutcome {
 
 class ChunkRangeIo {
 public:
-	explicit ChunkRangeIo(const ChunkLocator& locator);
+	ChunkRangeIo(const ChunkLocator& locator, const OpenFileCache& handles);
 
 	[[nodiscard]] static libtorrent::storage_error IoFailure();
 
@@ -54,21 +55,24 @@ public:
 		const char* source
 	) const;
 
+	void ReleaseHandles() const;
+
 private:
-	[[nodiscard]] static bool WriteFileRange_(
+	[[nodiscard]] bool WriteFileRange_(
 		const std::filesystem::path& target,
 		std::uint64_t offset,
 		std::int64_t length,
 		const char* source
-	);
+	) const;
 
-	[[nodiscard]] static bool ReadFileRange_(
+	[[nodiscard]] bool ReadFileRange_(
 		const std::filesystem::path& source,
 		std::uint64_t offset,
 		std::int64_t length,
 		char* target
-	);
+	) const;
 
 	const ChunkLocator* _locator;
+	const OpenFileCache* _handles;
 };
 }

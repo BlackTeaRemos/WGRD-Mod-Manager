@@ -31,6 +31,8 @@ wgrd_add_module(downloader
         storage/InstalledFolderStorage.cpp
         storage/ResumeAttestation.h
         storage/ResumeAttestation.cpp
+        storage/OpenFileCache.h
+        storage/OpenFileCache.cpp
         storage/ModFolderStamp.h
         storage/ModFolderStamp.cpp
         storage/SeedAttestations.h

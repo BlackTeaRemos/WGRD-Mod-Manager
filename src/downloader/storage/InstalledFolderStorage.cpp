@@ -19,14 +19,15 @@ InstalledFolderStorage::InstalledFolderStorage(
 	libtorrent::io_context& context,
 	StorageFaults& faults,
 	const SeedAttestations& attestations,
-	StorageBacklog& backlog
+	StorageBacklog& backlog,
+	const OpenFileCache& handles
 )
 	: _locator(&locator)
 	, _context(&context)
 	, _faults(&faults)
 	, _attestations(&attestations)
 	, _backlog(&backlog)
-	, _rangeIo(locator)
+	, _rangeIo(locator, handles)
 	, _guard()
 	, _queue()
 	, _torrents() {}
@@ -80,6 +81,8 @@ libtorrent::storage_holder InstalledFolderStorage::new_torrent(
 }
 
 void InstalledFolderStorage::remove_torrent(const libtorrent::storage_index_t index) {
+	_rangeIo.ReleaseHandles();
+
 	const std::scoped_lock lock(_guard);
 
 	const std::size_t slot = static_cast<std::uint32_t>(index);
@@ -370,6 +373,8 @@ void InstalledFolderStorage::async_release_files(
 	libtorrent::storage_index_t,
 	const std::function<void()> handler
 ) {
+	_rangeIo.ReleaseHandles();
+
 	if (handler) {
 		handler();
 	}
@@ -411,6 +416,8 @@ void InstalledFolderStorage::async_stop_torrent(
 	libtorrent::storage_index_t,
 	const std::function<void()> handler
 ) {
+	_rangeIo.ReleaseHandles();
+
 	if (handler) {
 		handler();
 	}

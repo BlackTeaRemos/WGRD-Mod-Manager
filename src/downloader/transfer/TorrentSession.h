@@ -10,6 +10,7 @@
 #include "downloader/storage/ChunkLocator.h"
 #include "downloader/storage/ModFolderStamp.h"
 #include "downloader/storage/SeedAttestations.h"
+#include "downloader/storage/OpenFileCache.h"
 #include "downloader/storage/StorageBacklog.h"
 #include "downloader/storage/SeedStampStore.h"
 #include "downloader/storage/StorageFaults.h"
@@ -150,6 +151,7 @@ private:
 	ChunkLocator _locator;
 	StorageFaults _faults;
 	StorageBacklog _backlog;
+	OpenFileCache _handles;
 	SeedAttestations _attestations;
 	SeedStampStore _stamps;
 	TorrentCache _torrents;

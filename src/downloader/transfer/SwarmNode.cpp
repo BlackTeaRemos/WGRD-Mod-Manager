@@ -80,7 +80,8 @@ SwarmNode::SwarmNode(std::filesystem::path savePath, const ChunkLocator& locator
 					context,
 					_faults,
 					_attestations,
-					_backlog
+					_backlog,
+					_handles
 				);
 			};
 
