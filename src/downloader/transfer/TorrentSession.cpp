@@ -418,6 +418,7 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 		}
 	}
 
+	_locator.SetFetchStaging(stagingFolder);
 	_locator.SetVerifyExisting(verifyExisting);
 
 	const std::string magnet = "magnet:?xt=urn:btmh:1220" + infoHash.ToHex();
@@ -475,6 +476,7 @@ void TorrentSession::Cancel() {
 
 	if (retirement.clearNow) {
 		_locator.ClearDestinations();
+		_locator.SetFetchStaging({});
 	}
 }
 
@@ -600,7 +602,7 @@ void TorrentSession::Poll() {
 	RefreshEntries_();
 
 	const std::optional<FetchRates> fetchRates =
-			FetchRefresher::Refresh(_fetchState, _backlog.Pending() == 0);
+			FetchRefresher::Refresh(_fetchState, _backlog.Pending());
 	if (fetchRates.has_value()) {
 		AccumulateRates_(fetchRates->downloadRate, fetchRates->uploadRate);
 	}

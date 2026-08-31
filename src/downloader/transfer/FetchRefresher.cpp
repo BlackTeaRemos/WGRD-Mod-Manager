@@ -55,7 +55,10 @@ void FetchRefresher::ApplyPriorities_(FetchState& fetchState, libtorrent::torren
 	fetchState.MarkPrioritised(wantedBytes);
 }
 
-std::optional<FetchRates> FetchRefresher::Refresh(FetchState& fetchState, const bool writesSettled) {
+std::optional<FetchRates> FetchRefresher::Refresh(
+	FetchState& fetchState,
+	const std::uint64_t pendingWrites
+) {
 	std::optional<libtorrent::torrent_handle> active = fetchState.Active();
 
 	if (!active.has_value() || !active->is_valid()) {
@@ -78,7 +81,8 @@ std::optional<FetchRates> FetchRefresher::Refresh(FetchState& fetchState, const 
 		static_cast<std::uint64_t>(status.total_wanted_done),
 		inFlightBytes,
 		status.is_finished,
-		writesSettled
+		pendingWrites == 0,
+		pendingWrites
 	);
 
 	return FetchRates{status.download_payload_rate, status.upload_payload_rate};

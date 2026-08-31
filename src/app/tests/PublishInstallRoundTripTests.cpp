@@ -155,6 +155,12 @@ TEST_CASE("published mod installs byte identical on a second peer") {
 		&publisherSwarm
 	);
 
+	publisherSwarm.StartGossip(
+		publisherReceiver,
+		publisherReceiver,
+		publisherData / "control"
+	);
+
 	REQUIRE(publishService.CreateKey(
 			PUBLISHER,
 			publisherTree.Root() / "publisher.wgrdkey",
@@ -202,6 +208,12 @@ TEST_CASE("published mod installs byte identical on a second peer") {
 		leecherMods,
 		std::string(LOOPBACK),
 		false
+	);
+
+	leecherSwarm.StartGossip(
+		leecherReceiver,
+		leecherReceiver,
+		leecherData / "control"
 	);
 
 	const wgrd::manager::ManifestStore leecherStore(leecherData / "manifests");

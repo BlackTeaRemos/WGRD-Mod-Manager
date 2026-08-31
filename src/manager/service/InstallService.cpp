@@ -487,6 +487,12 @@ void InstallService::Poll() {
 		_progress.peers = status.peers;
 		_progress.hashFailures = status.hashFailures;
 		_progress.bannedPeers = status.bannedPeers;
+		_progress.pendingWrites = status.pendingWrites;
+		_progress.settling = status.settling;
+
+		if (status.settling) {
+			_progress.message = std::string(text::INSTALL_SETTLING_WRITES);
+		}
 	}
 
 	if (status.phase == domain::FetchPhase::Failed) {

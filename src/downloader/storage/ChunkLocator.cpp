@@ -202,6 +202,21 @@ void ChunkLocator::ClearDestinations() {
 	_destinations.clear();
 }
 
+void ChunkLocator::SetFetchStaging(std::filesystem::path stagingFolder) {
+	const std::scoped_lock lock(_guard);
+	_fetchStaging = std::move(stagingFolder);
+}
+
+bool ChunkLocator::IsFetchStaging(const std::filesystem::path& savePath) const {
+	const std::scoped_lock lock(_guard);
+
+	if (_fetchStaging.empty()) {
+		return false;
+	}
+
+	return _fetchStaging == savePath;
+}
+
 void ChunkLocator::SetVerifyExisting(const bool verify) {
 	const std::scoped_lock lock(_guard);
 	_verifyExisting = verify;

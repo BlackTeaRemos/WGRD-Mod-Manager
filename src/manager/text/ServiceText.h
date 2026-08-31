@@ -83,6 +83,7 @@ constexpr std::string_view INSTALL_MANIFEST_REJECTED = "manifest rejected";
 constexpr std::string_view INSTALL_FETCH_REFUSED = "fetch refused";
 constexpr std::string_view INSTALL_FETCH_FAILED = "fetch failed";
 constexpr std::string_view INSTALL_FETCHING_CHUNKS = "fetching missing chunks";
+constexpr std::string_view INSTALL_SETTLING_WRITES = "writing verified chunks";
 constexpr std::string_view INSTALL_MATERIALISING = "materialising mod folder";
 constexpr std::string_view INSTALL_FROM_HELD = "materialising from held chunks";
 constexpr std::string_view INSTALL_FAILED = "install failed";

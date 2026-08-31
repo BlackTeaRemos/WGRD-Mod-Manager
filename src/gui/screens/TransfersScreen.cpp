@@ -303,17 +303,22 @@ design::TransferSegments TransfersScreen::SegmentsFor_(const domain::InstallProg
 	const auto span = static_cast<double>(total);
 
 	const std::uint64_t verifiedBytes = progress.heldBytes + progress.fetchedBytes;
+	const std::uint64_t pendingBytes = progress.pendingWrites * PENDING_WRITE_BLOCK_BYTES;
 
-	const double verified = std::min(static_cast<double>(verifiedBytes) / span, 1.0);
-	const double remaining = 1.0 - verified;
+	const std::uint64_t settledBytes = verifiedBytes > pendingBytes
+	                                   ? verifiedBytes - pendingBytes
+	                                   : 0;
 
-	const double inFlight = std::min(
-		static_cast<double>(progress.inFlightBytes) / span,
-		remaining > 0.0 ? remaining : 0.0
-	);
+	const double settled = std::min(static_cast<double>(settledBytes) / span, 1.0);
+	const double remaining = 1.0 - settled;
+
+	const double awaiting =
+			static_cast<double>(progress.inFlightBytes + pendingBytes) / span;
+
+	const double striped = std::min(awaiting, remaining > 0.0 ? remaining : 0.0);
 
 	return design::TransferSegments{
-		static_cast<float>(verified), static_cast<float>(inFlight)
+		static_cast<float>(settled), static_cast<float>(striped)
 	};
 }
 
@@ -377,6 +382,15 @@ void TransfersScreen::DrawDownloads_(
 		tokens::SECONDARY_MUTED,
 		10.0f
 	);
+
+	if (progress.pendingWrites > 0) {
+		design::TextAt(
+			ImVec2(area.origin.x + 600.0f, bodyY + 5.0f),
+			std::format(text::transfers::PENDING_WRITES_FORMAT, progress.pendingWrites),
+			tokens::ACCENT,
+			10.0f
+		);
+	}
 
 	if (progress.hashFailures > 0 || progress.bannedPeers > 0) {
 		design::TextAt(

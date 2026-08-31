@@ -66,7 +66,8 @@ public:
 		std::uint64_t fetchedBytes,
 		std::uint64_t inFlightBytes,
 		bool finished,
-		bool writesSettled
+		bool writesSettled,
+		std::uint64_t pendingWrites
 	);
 
 private:

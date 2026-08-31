@@ -12,6 +12,7 @@ namespace wgrd::gui {
 class TransfersScreen {
 public:
 	static constexpr float HELD_ROW_HEIGHT = 24.0f;
+	static constexpr std::uint64_t PENDING_WRITE_BLOCK_BYTES = 16384;
 
 	void Draw(
 		const ScreenArea& area,

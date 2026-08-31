@@ -6,6 +6,7 @@
         GossipTests.cpp
         PairFetchTests.cpp
         FastCdcChunkerTests.cpp
+        FetchCompletionTests.cpp
         SeedAttestationTests.cpp
         StorageClassificationTests.cpp
         SwarmTransferTests.cpp

@@ -52,6 +52,10 @@ public:
 
 	void ClearDestinations();
 
+	void SetFetchStaging(std::filesystem::path stagingFolder);
+
+	[[nodiscard]] bool IsFetchStaging(const std::filesystem::path& savePath) const;
+
 	void SetVerifyExisting(bool verify);
 
 	[[nodiscard]] bool VerifyExisting() const;
@@ -69,6 +73,7 @@ private:
 	);
 
 	mutable std::mutex _guard;
+	std::filesystem::path _fetchStaging;
 	bool _verifyExisting = false;
 	std::map<std::string, std::vector<ChunkLocation>> _locations;
 	std::map<std::string, std::vector<ChunkLocation>> _destinations;

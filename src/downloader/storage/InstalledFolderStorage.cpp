@@ -177,10 +177,15 @@ bool InstalledFolderStorage::async_write(
 ) {
 	std::vector<char> payload(buffer, buffer + request.length);
 
-	_backlog->Begin();
+	const std::optional<MountedTorrent> target = Mounted_(storage);
+	const bool tracked = target.has_value() && _locator->IsFetchStaging(target->savePath);
+
+	if (tracked) {
+		_backlog->Begin();
+	}
 
 	_queue.Enqueue(
-		[this, storage, request, payload = std::move(payload), handler = std::move(handler)]() mutable {
+		[this, storage, request, tracked, payload = std::move(payload), handler = std::move(handler)]() mutable {
 			const std::optional<MountedTorrent> mounted = Mounted_(storage);
 
 			const bool written = mounted.has_value()
@@ -198,7 +203,9 @@ bool InstalledFolderStorage::async_write(
 				_faults->RecordWriteFailure();
 			}
 
-			_backlog->Finish();
+			if (tracked) {
+				_backlog->Finish();
+			}
 
 			Complete_([handler, written]() mutable {
 					handler(written ? libtorrent::storage_error() : ChunkRangeIo::IoFailure());
