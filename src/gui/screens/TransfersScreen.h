@@ -13,6 +13,9 @@ class TransfersScreen {
 public:
 	static constexpr float HELD_ROW_HEIGHT = 24.0f;
 	static constexpr std::uint64_t PENDING_WRITE_BLOCK_BYTES = 16384;
+	static constexpr float DOWNLOAD_BAR_HEIGHT = 18.0f;
+	static constexpr float DOWNLOAD_BAR_INSET = 6.0f;
+	static constexpr float DOWNLOAD_BAR_TOP_OFFSET = 38.0f;
 
 	void Draw(
 		const ScreenArea& area,

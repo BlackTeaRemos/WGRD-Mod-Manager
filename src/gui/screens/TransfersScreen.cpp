@@ -406,35 +406,56 @@ void TransfersScreen::DrawDownloads_(
 	}
 
 	const std::uint64_t total = progress.heldBytes + progress.remoteBytes;
-
-	design::TransferBar(
-		ImVec2(area.origin.x + area.width - 226.0f, bodyY + 8.0f),
-		220.0f,
-		tokens::TRANSFER_BAR_HEIGHT,
-		SegmentsFor_(progress)
-	);
-
-	design::TextAt(
-		ImVec2(area.origin.x + area.width - 226.0f, bodyY + 21.0f),
-		total == 0
-		? std::string(text::transfers::NOTHING_TO_MOVE)
-		: std::format(
-			text::transfers::MOVED_FORMAT,
-			ScreenToolbar::FormatBytes(progress.heldBytes + progress.fetchedBytes),
-			ScreenToolbar::FormatBytes(total)
-		),
-		tokens::SECONDARY_MUTED,
-		9.0f
-	);
+	const std::uint64_t moved = progress.heldBytes + progress.fetchedBytes;
 
 	if (progress.Busy()) {
 		if (design::Button(
-			ImVec2(area.origin.x + area.width - 70.0f, bodyY + 26.0f),
+			ImVec2(area.origin.x + area.width - 70.0f, bodyY + 4.0f),
 			text::transfers::CANCEL,
 			design::ButtonVariant::Failure
 		)) {
 			install->Cancel();
 		}
+	}
+
+	const float barY = bodyY + DOWNLOAD_BAR_TOP_OFFSET;
+	const float barWidth = area.width - DOWNLOAD_BAR_INSET * 2.0f;
+
+	design::TransferBar(
+		ImVec2(area.origin.x + DOWNLOAD_BAR_INSET, barY),
+		barWidth,
+		DOWNLOAD_BAR_HEIGHT,
+		SegmentsFor_(progress)
+	);
+
+	const float captionY = barY + DOWNLOAD_BAR_HEIGHT + 4.0f;
+
+	design::TextAt(
+		ImVec2(area.origin.x + DOWNLOAD_BAR_INSET, captionY),
+		total == 0
+		? std::string(text::transfers::NOTHING_TO_MOVE)
+		: std::format(
+			text::transfers::MOVED_FORMAT,
+			ScreenToolbar::FormatBytes(moved),
+			ScreenToolbar::FormatBytes(total)
+		),
+		tokens::SECONDARY_MUTED,
+		10.0f
+	);
+
+	if (total > 0) {
+		const double share = static_cast<double>(moved) / static_cast<double>(total);
+		const std::string percent = std::format(text::transfers::SHARE_FORMAT, share * 100.0);
+
+		design::TextAt(
+			ImVec2(
+				area.origin.x + area.width - DOWNLOAD_BAR_INSET - design::MeasureText(percent, 10.0f).x,
+				captionY
+			),
+			percent,
+			progress.settling ? tokens::ACCENT : tokens::SECONDARY,
+			10.0f
+		);
 	}
 }
 
