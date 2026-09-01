@@ -8,6 +8,8 @@
 #include <imgui.h>
 #include <imgui_impl_win32.h>
 
+#include <windows.h>
+
 namespace wgrd::gui {
 namespace {}
 
@@ -29,8 +31,8 @@ Application::~Application() {
 bool Application::Start(const ApplicationServices& services) {
 	_services = services;
 
-	constexpr auto width = static_cast<std::uint32_t>(tokens::FRAME_WIDTH);
-	constexpr auto height = static_cast<std::uint32_t>(tokens::FRAME_MIN_HEIGHT);
+	constexpr auto width = static_cast<std::uint32_t>(tokens::FRAME_WIDTH * tokens::UI_SCALE);
+	constexpr auto height = static_cast<std::uint32_t>(tokens::FRAME_MIN_HEIGHT * tokens::UI_SCALE);
 
 	if (!_window.Create(std::wstring(text::shell::WINDOW_TITLE), width, height)) {
 		return false;
@@ -42,6 +44,12 @@ bool Application::Start(const ApplicationServices& services) {
 	ImGuiIO& io = ImGui::GetIO();
 	io.IniFilename = nullptr;
 	io.LogFilename = nullptr;
+
+	ImFontConfig atlas;
+	atlas.SizePixels = tokens::BASE_FONT_PIXELS * tokens::UI_SCALE;
+
+	io.Fonts->Clear();
+	io.Fonts->AddFontDefault(&atlas);
 
 	ImGui::StyleColorsDark();
 
@@ -80,6 +88,8 @@ int Application::Run() {
 			AdoptFinishedInstalls_();
 		}
 
+		AskGossipOnce_();
+
 		if (_services.registry != nullptr) {
 			_services.registry->Tick();
 		}
@@ -90,6 +100,10 @@ int Application::Run() {
 
 		_backend->BeginFrame();
 		ImGui_ImplWin32_NewFrame();
+
+		ApplyScale_();
+		ScalePointer_();
+
 		ImGui::NewFrame();
 
 		DrawFrame_();
@@ -101,6 +115,44 @@ int Application::Run() {
 	SettleTransfers_();
 
 	return 0;
+}
+
+void Application::AskGossipOnce_() {
+	if (_askedGossip || _services.gossip == nullptr) {
+		return;
+	}
+
+	_askedGossip = true;
+
+	_services.gossip->RequestGossipRefresh();
+}
+
+void Application::ApplyScale_() {
+	ImGuiIO& io = ImGui::GetIO();
+
+	io.DisplaySize = ImVec2(
+		io.DisplaySize.x / tokens::UI_SCALE,
+		io.DisplaySize.y / tokens::UI_SCALE
+	);
+
+	io.DisplayFramebufferScale = ImVec2(tokens::UI_SCALE, tokens::UI_SCALE);
+}
+
+void Application::ScalePointer_() {
+	POINT cursor{};
+
+	if (GetCursorPos(&cursor) == 0) {
+		return;
+	}
+
+	if (ScreenToClient(_window.Handle(), &cursor) == 0) {
+		return;
+	}
+
+	ImGui::GetIO().AddMousePosEvent(
+		static_cast<float>(cursor.x) / tokens::UI_SCALE,
+		static_cast<float>(cursor.y) / tokens::UI_SCALE
+	);
 }
 
 void Application::SettleTransfers_() {

@@ -34,6 +34,12 @@ private:
 
 	void SettleTransfers_();
 
+	void AskGossipOnce_();
+
+	static void ApplyScale_();
+
+	void ScalePointer_();
+
 	Win32Window _window;
 	std::unique_ptr<IRenderBackend> _backend;
 	ApplicationState _state;
@@ -46,5 +52,6 @@ private:
 	std::uint64_t _seenInstalls = 0;
 	std::uint64_t _seenSettled = 0;
 	bool _started = false;
+	bool _askedGossip = false;
 };
 }

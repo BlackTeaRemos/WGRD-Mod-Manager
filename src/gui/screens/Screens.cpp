@@ -8,7 +8,7 @@ void Screens::Draw(
 ) {
 	switch (state.ActiveScreen()) {
 		case Screen::Catalog:
-			_catalog.Draw(area, state, services.catalog, services.install, services.removal);
+			_catalog.Draw(area, state, services.catalog, services.install, services.removal, services.gossip);
 			return;
 		case Screen::Order:
 			_order.Draw(area, services.order, services.profiles, services.catalog);

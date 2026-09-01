@@ -1,6 +1,7 @@
-#pragma once
+﻿#pragma once
 
 #include "domain/interfaces/services/ICatalogService.h"
+#include "domain/interfaces/services/IAnnounceGossip.h"
 #include "domain/interfaces/services/IInstallService.h"
 #include "domain/interfaces/services/IModRemovalService.h"
 #include "gui/screens/ScreenArea.h"
@@ -20,7 +21,8 @@ public:
 		ApplicationState& state,
 		domain::ICatalogService* catalog,
 		domain::IInstallService* install,
-		domain::IModRemovalService* removal
+		domain::IModRemovalService* removal,
+		domain::IAnnounceGossip* gossip
 	);
 
 private:

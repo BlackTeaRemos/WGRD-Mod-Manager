@@ -12,6 +12,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace wgrd::downloader {
@@ -55,6 +56,18 @@ public:
 
 	[[nodiscard]] domain::GossipStatus Snapshot() const;
 
+	void UseListenPort(std::uint16_t port);
+
+	[[nodiscard]] std::uint16_t ListenPort() const;
+
+	void NotePeer(std::string address, std::uint16_t port);
+
+	[[nodiscard]] std::vector<std::pair<std::string, std::uint16_t>> TakeNotedPeers();
+
+	void RequestRefresh();
+
+	[[nodiscard]] std::uint64_t RefreshGeneration() const;
+
 private:
 	[[nodiscard]] PeerAnnounceBudget* EnsureBudget_(
 		const std::string& peer,
@@ -67,5 +80,8 @@ private:
 	mutable std::mutex _guard;
 	std::map<std::string, PeerAnnounceBudget> _budgets;
 	domain::GossipStatus _status;
+	std::vector<std::pair<std::string, std::uint16_t>> _noted;
+	std::uint64_t _refreshGeneration = 0;
+	std::uint16_t _listenPort = 0;
 };
 }

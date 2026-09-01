@@ -263,7 +263,8 @@ void CatalogScreen::Draw(
 	ApplicationState& state,
 	domain::ICatalogService* catalog,
 	domain::IInstallService* install,
-	domain::IModRemovalService* removal
+	domain::IModRemovalService* removal,
+	domain::IAnnounceGossip* gossip
 ) {
 	if (catalog == nullptr) {
 		const float cursorY = ScreenToolbar::Draw(area, text::catalog::TITLE, text::catalog::UNAVAILABLE);
@@ -302,6 +303,10 @@ void CatalogScreen::Draw(
 	}
 
 	if (design::Button(ImVec2(filterX + 12.0f, filterY), text::catalog::REFRESH, design::ButtonVariant::Neutral)) {
+		if (gossip != nullptr) {
+			gossip->RequestGossipRefresh();
+		}
+
 		catalog->Refresh();
 		return;
 	}

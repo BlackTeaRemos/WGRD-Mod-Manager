@@ -67,6 +67,11 @@ void AnnounceGossipPeerPlugin::add_handshake(libtorrent::entry& handshake) {
 			handshake["m"].dict();
 
 	messages[std::string(EXTENSION_NAME)] = libtorrent::entry(LOCAL_MESSAGE_ID);
+
+	const std::uint16_t listening = _exchange->ListenPort();
+	if (listening != 0) {
+		handshake["p"] = libtorrent::entry(static_cast<std::int64_t>(listening));
+	}
 }
 
 bool AnnounceGossipPeerPlugin::on_extension_handshake(const libtorrent::bdecode_node& handshake) {
@@ -90,8 +95,16 @@ bool AnnounceGossipPeerPlugin::on_extension_handshake(const libtorrent::bdecode_
 
 	_remoteMessageId = static_cast<int>(advertised);
 
+	const std::int64_t listening = handshake.dict_find_int_value("p", 0);
+
+	if (listening > 0 && listening <= 65535) {
+		_exchange->NotePeer(PeerKey_(), static_cast<std::uint16_t>(listening));
+	}
+
 	_exchange->PeerOpened();
 	_counted = true;
+
+	_seenRefresh = _exchange->RefreshGeneration();
 
 	SendOffer_(_exchange->Holdings());
 
@@ -253,6 +266,9 @@ bool AnnounceGossipPeerPlugin::on_extended(
 		case AnnounceWireMessage::Record:
 			HandleRecord_(body);
 			break;
+		case AnnounceWireMessage::Ask:
+			SendOffer_(_exchange->Holdings());
+			break;
 	}
 
 	return true;
@@ -272,6 +288,17 @@ void AnnounceGossipPeerPlugin::tick() {
 	_lastHoldingsPoll = now;
 
 	_wants.Prune(now);
+
+	const std::uint64_t generation = _exchange->RefreshGeneration();
+
+	if (generation != _seenRefresh) {
+		_seenRefresh = generation;
+
+		Send_(AnnounceWireCodec::EncodeAsk());
+		SendOffer_(_exchange->Holdings());
+
+		return;
+	}
 
 	std::vector<domain::AnnounceSummary> holdings = _exchange->Holdings();
 

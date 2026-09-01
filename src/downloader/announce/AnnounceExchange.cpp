@@ -2,6 +2,9 @@
 
 #include "downloader/announce/AnnounceWireCodec.h"
 
+#include <algorithm>
+#include <utility>
+
 namespace wgrd::downloader {
 AnnounceExchange::AnnounceExchange(
 	domain::IAnnounceCatalogue& catalogue,
@@ -192,5 +195,54 @@ void AnnounceExchange::CountOfferReceived() {
 domain::GossipStatus AnnounceExchange::Snapshot() const {
 	const std::scoped_lock lock(_guard);
 	return _status;
+}
+
+void AnnounceExchange::UseListenPort(const std::uint16_t port) {
+	const std::scoped_lock lock(_guard);
+	_listenPort = port;
+}
+
+std::uint16_t AnnounceExchange::ListenPort() const {
+	const std::scoped_lock lock(_guard);
+	return _listenPort;
+}
+
+void AnnounceExchange::NotePeer(std::string address, const std::uint16_t port) {
+	if (address.empty() || port == 0) {
+		return;
+	}
+
+	const std::scoped_lock lock(_guard);
+
+	if (_noted.size() >= MAXIMUM_TRACKED_PEERS) {
+		return;
+	}
+
+	const std::pair<std::string, std::uint16_t> candidate{std::move(address), port};
+
+	if (std::ranges::find(_noted, candidate) != _noted.end()) {
+		return;
+	}
+
+	_noted.push_back(candidate);
+}
+
+std::vector<std::pair<std::string, std::uint16_t>> AnnounceExchange::TakeNotedPeers() {
+	const std::scoped_lock lock(_guard);
+
+	std::vector<std::pair<std::string, std::uint16_t>> taken;
+	taken.swap(_noted);
+
+	return taken;
+}
+
+void AnnounceExchange::RequestRefresh() {
+	const std::scoped_lock lock(_guard);
+	_refreshGeneration += 1;
+}
+
+std::uint64_t AnnounceExchange::RefreshGeneration() const {
+	const std::scoped_lock lock(_guard);
+	return _refreshGeneration;
 }
 }

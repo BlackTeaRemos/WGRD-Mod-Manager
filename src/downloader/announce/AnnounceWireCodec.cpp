@@ -99,6 +99,15 @@ std::vector<std::uint8_t> AnnounceWireCodec::EncodeRecord(std::span<const std::u
 	return message;
 }
 
+std::vector<std::uint8_t> AnnounceWireCodec::EncodeAsk() {
+	std::vector<std::uint8_t> message;
+
+	message.reserve(HEADER_BYTES);
+	message.push_back(static_cast<std::uint8_t>(AnnounceWireMessage::Ask));
+
+	return message;
+}
+
 std::optional<AnnounceWireMessage> AnnounceWireCodec::MessageOf(const std::span<const std::uint8_t> message) {
 	if (message.empty() || message.size() > MAXIMUM_MESSAGE_BYTES) {
 		return std::nullopt;
@@ -111,6 +120,8 @@ std::optional<AnnounceWireMessage> AnnounceWireCodec::MessageOf(const std::span<
 			return AnnounceWireMessage::Want;
 		case static_cast<std::uint8_t>(AnnounceWireMessage::Record):
 			return AnnounceWireMessage::Record;
+		case static_cast<std::uint8_t>(AnnounceWireMessage::Ask):
+			return AnnounceWireMessage::Ask;
 		default:
 			return std::nullopt;
 	}

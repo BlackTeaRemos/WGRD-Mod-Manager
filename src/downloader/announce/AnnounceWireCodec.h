@@ -9,7 +9,7 @@
 
 namespace wgrd::downloader {
 enum class AnnounceWireMessage : std::uint8_t {
-	Offer = 0x01, Want = 0x02, Record = 0x03
+	Offer = 0x01, Want = 0x02, Record = 0x03, Ask = 0x04
 };
 
 class AnnounceWireCodec {
@@ -45,6 +45,8 @@ public:
 	[[nodiscard]] static std::vector<std::uint8_t> EncodeRecord(
 		std::span<const std::uint8_t> record
 	);
+
+	[[nodiscard]] static std::vector<std::uint8_t> EncodeAsk();
 
 	[[nodiscard]] static std::optional<AnnounceWireMessage> MessageOf(
 		std::span<const std::uint8_t> message

@@ -61,5 +61,6 @@ private:
 	std::vector<domain::AnnounceSummary> _lastOffered;
 	std::chrono::steady_clock::time_point _lastOffer;
 	std::chrono::steady_clock::time_point _lastHoldingsPoll;
+	std::uint64_t _seenRefresh = 0;
 };
 }

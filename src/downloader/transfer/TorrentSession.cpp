@@ -184,6 +184,27 @@ bool TorrentSession::AddGossipPeer(const std::string_view address, std::uint16_t
 	return true;
 }
 
+void TorrentSession::RequestGossipRefresh() {
+	if (_exchange == nullptr) {
+		return;
+	}
+
+	_exchange->RequestRefresh();
+}
+
+void TorrentSession::AdoptGossipPeers() {
+	if (_exchange == nullptr) {
+		return;
+	}
+
+	_exchange->UseListenPort(ListenPort());
+
+	for (const auto& peer : _exchange->TakeNotedPeers()) {
+		const bool added = AddGossipPeer(peer.first, peer.second);
+		(void)added;
+	}
+}
+
 std::uint16_t TorrentSession::ListenPort() const {
 	return _session->listen_port();
 }
@@ -672,6 +693,7 @@ void TorrentSession::Poll() {
 	_status.listenPort = static_cast<std::uint32_t>(_session->listen_port());
 
 	if (_exchange != nullptr) {
+		AdoptGossipPeers();
 		DialLoopbackNeighbours_();
 
 		if (_gossip.controlValid) {

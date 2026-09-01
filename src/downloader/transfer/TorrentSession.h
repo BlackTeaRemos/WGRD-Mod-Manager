@@ -83,6 +83,10 @@ public:
 
 	[[nodiscard]] bool AddGossipPeer(std::string_view address, std::uint16_t port) override;
 
+	void RequestGossipRefresh() override;
+
+	void AdoptGossipPeers();
+
 	void ConnectLocalPeer(std::uint16_t port);
 
 	[[nodiscard]] std::uint16_t ListenPort() const;
