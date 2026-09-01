@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <imgui.h>
 
@@ -48,9 +48,6 @@ constexpr ImU32 ACCENT_HEADING_SECTION = FromHex(0xE07830, 0.70f);
 constexpr ImU32 SUCCESS_HEADING = FromHex(0x40B868, 0.50f);
 constexpr ImU32 WARNING_HEADING = FromHex(0xE0C030, 0.80f);
 constexpr ImU32 ADVISORY_SURFACE = FromHex(0xE0C030, 0.10f);
-
-constexpr float UI_SCALE = 1.6f;
-constexpr float BASE_FONT_PIXELS = 13.0f;
 
 constexpr float FRAME_WIDTH = 1320.0f;
 constexpr float FRAME_MIN_HEIGHT = 770.0f;

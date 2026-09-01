@@ -13,6 +13,7 @@ int SessionSettings::AlertMask_() {
 			libtorrent::alert_category::dht |
 			libtorrent::alert_category::peer |
 			libtorrent::alert_category::connect |
+			libtorrent::alert_category::tracker |
 			libtorrent::alert_category::error;
 
 	return static_cast<int>(static_cast<std::uint32_t>(mask));
@@ -42,6 +43,9 @@ libtorrent::settings_pack SessionSettings::Build(
 
 	settings.set_bool(libtorrent::settings_pack::close_redundant_connections, false);
 	settings.set_bool(libtorrent::settings_pack::allow_multiple_connections_per_ip, true);
+
+	settings.set_bool(libtorrent::settings_pack::announce_to_all_trackers, true);
+	settings.set_bool(libtorrent::settings_pack::announce_to_all_tiers, true);
 
 	settings.set_int(
 		libtorrent::settings_pack::local_service_announce_interval,

@@ -27,6 +27,8 @@ wgrd_add_module(gui
         screens/ScreenToolbar.cpp
         screens/CatalogScreen.h
         screens/CatalogScreen.cpp
+        design/FontLibrary.h
+        design/FontLibrary.cpp
         design/PassphraseMeter.h
         design/PassphraseMeter.cpp
         text/PassphraseText.h

@@ -1,6 +1,7 @@
-#include "downloader/transfer/SeedTorrentAssembler.h"
+﻿#include "downloader/transfer/SeedTorrentAssembler.h"
 
 #include "downloader/torrent/build/VirtualChunkSetTorrent.h"
+#include "downloader/transfer/TrackerList.h"
 #include "downloader/torrent/chunkset/ChunkSetLayout.h"
 
 #include <libtorrent/error_code.hpp>
@@ -111,6 +112,8 @@ std::optional<PreparedSeedTorrent> SeedTorrentAssembler::Prepare(
 	parameters.flags |= libtorrent::torrent_flags::duplicate_is_error;
 	parameters.flags &= ~libtorrent::torrent_flags::paused;
 	parameters.flags &= ~libtorrent::torrent_flags::auto_managed;
+
+	TrackerList::Apply(parameters);
 
 	return PreparedSeedTorrent{
 		std::move(parameters),

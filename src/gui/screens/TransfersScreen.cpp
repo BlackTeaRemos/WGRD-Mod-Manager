@@ -63,7 +63,36 @@ float TransfersScreen::DrawSwarmCard_(
 		10.0f
 	);
 
-	return bodyY + 52.0f;
+	const bool heard = status.trackerReplies > 0;
+
+	design::TextAt(
+		ImVec2(area.origin.x + 6.0f, bodyY + 42.0f),
+		heard
+		? std::format(text::transfers::TRACKER_FORMAT, status.trackerReplies, status.trackerPeers)
+		: std::string(text::transfers::TRACKER_SILENT),
+		heard ? tokens::SUCCESS : tokens::TEXT_DISABLED,
+		10.0f
+	);
+
+	if (heard) {
+		if (status.trackerFailures > 0) {
+			design::TextAt(
+				ImVec2(area.origin.x + cardWidth + 6.0f, bodyY + 42.0f),
+				std::format(text::transfers::TRACKER_UNAVAILABLE_FORMAT, status.trackerFailures),
+				tokens::TEXT_DISABLED,
+				10.0f
+			);
+		}
+	} else if (!status.lastTrackerError.empty()) {
+		design::TextAt(
+			ImVec2(area.origin.x + cardWidth + 6.0f, bodyY + 42.0f),
+			status.lastTrackerError,
+			tokens::WARNING_HEADING,
+			10.0f
+		);
+	}
+
+	return bodyY + 66.0f;
 }
 
 float TransfersScreen::DrawGossip_(

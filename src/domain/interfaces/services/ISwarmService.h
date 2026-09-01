@@ -12,6 +12,10 @@ struct SwarmStatus {
 	std::string listenInterface;
 	std::uint64_t downloadRate = 0;
 	std::uint64_t uploadRate = 0;
+	std::uint64_t trackerReplies = 0;
+	std::uint64_t trackerPeers = 0;
+	std::uint64_t trackerFailures = 0;
+	std::string lastTrackerError;
 };
 
 class ISwarmService {

@@ -157,20 +157,23 @@ void Win32Window::SetResizeHandler(std::function<void(std::uint32_t, std::uint32
 	_onResize = std::move(handler);
 }
 
-void Win32Window::MoveBy(const int deltaX, const int deltaY) {
-	RECT bounds{};
-	if (!GetWindowRect(_handle, &bounds)) {
+void Win32Window::BeginSystemDrag() {
+	if (_handle == nullptr) {
 		return;
 	}
 
-	SetWindowPos(
+	POINT cursor{};
+	if (GetCursorPos(&cursor) == 0) {
+		return;
+	}
+
+	ReleaseCapture();
+
+	SendMessageW(
 		_handle,
-		nullptr,
-		bounds.left + deltaX,
-		bounds.top + deltaY,
-		0,
-		0,
-		SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
+		WM_NCLBUTTONDOWN,
+		HTCAPTION,
+		MAKELPARAM(cursor.x, cursor.y)
 	);
 }
 

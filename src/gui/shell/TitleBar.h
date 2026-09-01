@@ -21,8 +21,5 @@ public:
 
 private:
 	[[nodiscard]] static std::string FormatRates_(const ApplicationServices& services);
-
-	bool _dragging = false;
-	ImVec2 _dragOrigin{};
 };
 }

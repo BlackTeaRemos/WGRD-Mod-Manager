@@ -117,18 +117,17 @@ void TitleBar::Draw(
 			pointer.x >= origin.x && pointer.x < cursor - ratesWidth - 10.0f &&
 			pointer.y >= origin.y && pointer.y < bottomRight.y;
 
-	if (overBar && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-		_dragging = true;
-		_dragOrigin = pointer;
+	if (!overBar) {
+		return;
 	}
-	if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-		_dragging = false;
+
+	if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+		window.ToggleMaximize();
+		return;
 	}
-	if (_dragging) {
-		const ImVec2 delta(pointer.x - _dragOrigin.x, pointer.y - _dragOrigin.y);
-		if (delta.x != 0.0f || delta.y != 0.0f) {
-			window.MoveBy(static_cast<int>(delta.x), static_cast<int>(delta.y));
-		}
+
+	if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+		window.BeginSystemDrag();
 	}
 }
 }

@@ -18,6 +18,10 @@ struct AlertOutcome {
 	bool clearDestinations = false;
 	std::optional<std::string> lastPeerError;
 	std::optional<std::string> lastTransferFailure;
+	std::uint64_t trackerReplies = 0;
+	std::uint64_t trackerPeers = 0;
+	std::uint64_t trackerFailures = 0;
+	std::optional<std::string> lastTrackerError;
 };
 
 class AlertRouter {

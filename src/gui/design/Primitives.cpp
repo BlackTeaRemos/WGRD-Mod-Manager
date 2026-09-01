@@ -1,5 +1,6 @@
 ﻿#include "gui/design/Primitives.h"
 
+#include "gui/design/FontLibrary.h"
 #include "gui/design/Tokens.h"
 
 #include <algorithm>
@@ -86,12 +87,12 @@ float ScaledText(const float pixels) {
 
 ImVec2 MeasureText(const std::string_view value, const float size) {
 	const std::string text(value);
-	return ImGui::GetFont()->CalcTextSizeA(size, FLT_MAX, 0.0f, text.c_str());
+	return FontLibrary::For(size)->CalcTextSizeA(size, FLT_MAX, 0.0f, text.c_str());
 }
 
 void TextAt(const ImVec2 position, const std::string_view value, const ImU32 color, const float size) {
 	const std::string text(value);
-	Canvas()->AddText(ImGui::GetFont(), size, position, color, text.c_str());
+	Canvas()->AddText(FontLibrary::For(size), size, position, color, text.c_str());
 }
 
 void Text(const std::string_view value, const ImU32 color, const float size) {

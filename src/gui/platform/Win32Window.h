@@ -26,7 +26,7 @@ public:
 
 	void SetResizeHandler(std::function<void(std::uint32_t, std::uint32_t)> handler);
 
-	void MoveBy(int deltaX, int deltaY);
+	void BeginSystemDrag();
 
 	void Minimize();
 	void ToggleMaximize();

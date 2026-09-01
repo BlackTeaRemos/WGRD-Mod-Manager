@@ -79,6 +79,8 @@ wgrd_add_module(downloader
         transfer/SeedRoster.cpp
         transfer/SeedTorrentAssembler.h
         transfer/SeedTorrentAssembler.cpp
+        transfer/TrackerList.h
+        transfer/TrackerList.cpp
         transfer/SessionSettings.h
         transfer/SessionSettings.cpp
         transfer/SwarmNode.h

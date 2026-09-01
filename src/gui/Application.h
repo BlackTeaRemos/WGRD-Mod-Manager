@@ -36,10 +36,6 @@ private:
 
 	void AskGossipOnce_();
 
-	static void ApplyScale_();
-
-	void ScalePointer_();
-
 	Win32Window _window;
 	std::unique_ptr<IRenderBackend> _backend;
 	ApplicationState _state;

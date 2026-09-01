@@ -1,6 +1,7 @@
-#include "downloader/transfer/ControlSwarmStarter.h"
+﻿#include "downloader/transfer/ControlSwarmStarter.h"
 
 #include "downloader/announce/ControlSwarmTorrent.h"
+#include "downloader/transfer/TrackerList.h"
 
 #include <libtorrent/error_code.hpp>
 #include <libtorrent/hex.hpp>
@@ -55,6 +56,8 @@ std::optional<PreparedControlTorrent> ControlSwarmStarter::Prepare(
 	parameters.save_path = dataDirectory.string();
 	parameters.flags &= ~libtorrent::torrent_flags::paused;
 	parameters.flags &= ~libtorrent::torrent_flags::auto_managed;
+
+	TrackerList::Apply(parameters);
 
 	PreparedControlTorrent prepared{
 		std::move(parameters),

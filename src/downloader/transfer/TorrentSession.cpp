@@ -1,6 +1,7 @@
-#include "downloader/transfer/TorrentSession.h"
+﻿#include "downloader/transfer/TorrentSession.h"
 
 #include "downloader/announce/AnnounceGossipPlugin.h"
+#include "downloader/transfer/TrackerList.h"
 #include "downloader/storage/InstalledFolderStorage.h"
 #include "downloader/transfer/AlertRouter.h"
 #include "downloader/transfer/ControlSwarmStarter.h"
@@ -487,6 +488,9 @@ std::expected<void, domain::FetchError> TorrentSession::Begin(
 	std::filesystem::create_directories(stagingFolder, creating);
 
 	parameters.save_path = stagingFolder.string();
+
+	TrackerList::Apply(parameters);
+
 	parameters.flags |= libtorrent::torrent_flags::default_dont_download;
 	parameters.flags |= libtorrent::torrent_flags::duplicate_is_error;
 	parameters.flags &= ~libtorrent::torrent_flags::paused;
@@ -654,6 +658,14 @@ void TorrentSession::Poll() {
 
 	if (outcome.dhtNodes.has_value()) {
 		_status.dhtNodes = *outcome.dhtNodes;
+	}
+
+	_status.trackerReplies += outcome.trackerReplies;
+	_status.trackerPeers += outcome.trackerPeers;
+	_status.trackerFailures += outcome.trackerFailures;
+
+	if (outcome.lastTrackerError.has_value()) {
+		_status.lastTrackerError = *outcome.lastTrackerError;
 	}
 
 	if (outcome.clearDestinations) {

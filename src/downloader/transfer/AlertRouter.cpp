@@ -25,6 +25,20 @@ AlertOutcome AlertRouter::Route(
 			continue;
 		}
 
+		if (const auto* const replied =
+				libtorrent::alert_cast<libtorrent::tracker_reply_alert>(entry)) {
+			outcome.trackerReplies += 1;
+			outcome.trackerPeers += static_cast<std::uint64_t>(std::max(replied->num_peers, 0));
+			continue;
+		}
+
+		if (const auto* const trackerFailed =
+				libtorrent::alert_cast<libtorrent::tracker_error_alert>(entry)) {
+			outcome.trackerFailures += 1;
+			outcome.lastTrackerError = trackerFailed->error.message();
+			continue;
+		}
+
 		if (const auto* const removed =
 				libtorrent::alert_cast<libtorrent::torrent_removed_alert>(entry)) {
 			if (fetchState.ConfirmRemoval(removed->handle)) {
