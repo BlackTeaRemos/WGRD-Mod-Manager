@@ -320,6 +320,41 @@ std::expected<void, domain::ProfileError> ProfileService::Clone(
 	return {};
 }
 
+std::expected<void, domain::ProfileError> ProfileService::KeepLiveGameProfile_(
+	const std::string_view incoming
+) {
+	if (_active.empty() || _active == incoming) {
+		return {};
+	}
+
+	const auto outgoing = _store->Load(_active);
+	if (!outgoing.has_value() || outgoing->Account().empty()) {
+		return {};
+	}
+
+	const std::filesystem::path live = LivePathFor_(outgoing->Account());
+	if (live.empty()) {
+		return {};
+	}
+
+	std::error_code probe;
+	if (!std::filesystem::is_regular_file(live, probe) || probe) {
+		return {};
+	}
+
+	const auto captured = GameProfileVault::Capture(
+		live,
+		_store->GameProfilePathFor(_active)
+	);
+
+	if (!captured.has_value()) {
+		_message = text::PROFILE_GAME_REJECTED;
+		return std::unexpected(domain::ProfileError::GameProfileRejected);
+	}
+
+	return {};
+}
+
 std::expected<void, domain::ProfileError> ProfileService::Activate(const std::string_view name) {
 	const auto profile = _store->Load(name);
 	if (!profile.has_value()) {
@@ -330,6 +365,11 @@ std::expected<void, domain::ProfileError> ProfileService::Activate(const std::st
 	if (!_order->Current().located) {
 		_message = text::NO_INSTALLATION;
 		return std::unexpected(domain::ProfileError::NoInstallation);
+	}
+
+	const auto kept = KeepLiveGameProfile_(name);
+	if (!kept.has_value()) {
+		return kept;
 	}
 
 	if (_store->HoldsGameProfile(name) && !profile->Account().empty()) {

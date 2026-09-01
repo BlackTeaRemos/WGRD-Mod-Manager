@@ -449,11 +449,10 @@ void InstallService::RunInstall_() {
 	(void)recorded;
 
 	if (_seeding != nullptr) {
-		_seeding->AttestContent(
-			target,
-			modFolder,
-			_store->PathFor(announce.manifestDigest.ToHex())
-		);
+		const std::filesystem::path sealed = _store->PathFor(announce.manifestDigest.ToHex());
+
+		_seeding->AttestContent(target, modFolder, sealed);
+		_seeding->PrepareSeed(target, modFolder, sealed);
 	}
 
 	{

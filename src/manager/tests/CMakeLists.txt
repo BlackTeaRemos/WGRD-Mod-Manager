@@ -14,6 +14,7 @@
         ManifestPipelineTests.cpp
         UpdateRoundTripTests.cpp
         AnnounceTests.cpp
+        ProfileSwitchTests.cpp
         ProfileTests.cpp
         StagedFolderScanTests.cpp
         UpdateTests.cpp

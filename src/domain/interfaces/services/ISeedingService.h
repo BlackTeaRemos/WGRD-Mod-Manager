@@ -30,6 +30,12 @@ public:
 		const std::filesystem::path& sealedManifestPath
 	) = 0;
 
+	virtual void PrepareSeed(
+		const ModManifest& manifest,
+		const std::filesystem::path& modFolder,
+		const std::filesystem::path& sealedManifestPath
+	) = 0;
+
 	virtual void AttestContent(
 		const ModManifest& manifest,
 		const std::filesystem::path& modFolder,

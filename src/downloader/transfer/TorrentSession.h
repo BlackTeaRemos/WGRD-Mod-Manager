@@ -107,6 +107,12 @@ public:
 		const std::filesystem::path& sealedManifestPath
 	) override;
 
+	void PrepareSeed(
+		const domain::ModManifest& manifest,
+		const std::filesystem::path& modFolder,
+		const std::filesystem::path& sealedManifestPath
+	) override;
+
 	void AttestContent(
 		const domain::ModManifest& manifest,
 		const std::filesystem::path& modFolder,

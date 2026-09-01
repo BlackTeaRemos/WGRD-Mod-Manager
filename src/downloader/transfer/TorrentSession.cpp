@@ -318,6 +318,22 @@ std::expected<domain::SeedEntry, domain::SeedError> TorrentSession::Announce(
 	return entry;
 }
 
+void TorrentSession::PrepareSeed(
+	const domain::ModManifest& manifest,
+	const std::filesystem::path& modFolder,
+	const std::filesystem::path& sealedManifestPath
+) {
+	const std::optional<PreparedSeedTorrent> warmed = SeedTorrentAssembler::Prepare(
+		_torrents,
+		manifest,
+		modFolder,
+		sealedManifestPath,
+		_savePath
+	);
+
+	(void)warmed;
+}
+
 void TorrentSession::AttestContent(
 	const domain::ModManifest& manifest,
 	const std::filesystem::path& modFolder,

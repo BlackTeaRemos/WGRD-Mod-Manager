@@ -1,4 +1,4 @@
-#include "manager/announce/AnnounceReceiver.h"
+﻿#include "manager/announce/AnnounceReceiver.h"
 #include "manager/hash/Blake3Hasher.h"
 #include "manager/install/InstalledReleaseStore.h"
 #include "manager/manifest/ManifestCodec.h"
@@ -105,6 +105,14 @@ public:
 		return entry;
 	}
 
+	void PrepareSeed(
+		const wgrd::domain::ModManifest&,
+		const std::filesystem::path&,
+		const std::filesystem::path&
+	) override {
+		++prepareCalls;
+	}
+
 	void AttestContent(
 		const wgrd::domain::ModManifest&,
 		const std::filesystem::path&,
@@ -130,6 +138,7 @@ public:
 	std::size_t announceCalls = 0;
 	std::size_t stopCalls = 0;
 	std::size_t attestCalls = 0;
+	std::size_t prepareCalls = 0;
 
 private:
 	std::string _reportedInfoHash;

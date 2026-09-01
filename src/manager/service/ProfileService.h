@@ -66,6 +66,10 @@ private:
 
 	[[nodiscard]] std::filesystem::path LivePathFor_(std::string_view account) const;
 
+	[[nodiscard]] std::expected<void, domain::ProfileError> KeepLiveGameProfile_(
+		std::string_view incoming
+	);
+
 	[[nodiscard]] static std::string CurrentOf_(const std::vector<domain::SteamAccount>& accounts);
 
 	void EnsureDefaults_();
