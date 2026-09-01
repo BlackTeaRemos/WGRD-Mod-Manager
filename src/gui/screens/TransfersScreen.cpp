@@ -153,28 +153,6 @@ float TransfersScreen::DrawGossip_(
 		);
 	}
 
-	if (status.readFailures > 0 || status.writeFailures > 0) {
-		design::TextAt(
-			ImVec2(area.origin.x + 620.0f, bodyY + 19.0f),
-			std::format(
-				text::transfers::DISK_FAULT_FORMAT,
-				status.readFailures,
-				status.writeFailures
-			),
-			tokens::FAILURE,
-			10.0f
-		);
-	}
-
-	if (!status.lastFailure.empty()) {
-		design::TextAt(
-			ImVec2(area.origin.x + 300.0f, bodyY + 19.0f),
-			std::string(text::transfers::TRANSFER_FAULT_PREFIX) + status.lastFailure,
-			tokens::FAILURE,
-			10.0f
-		);
-	}
-
 	const float bottom = bodyY + 34.0f;
 	design::HorizontalRule(area.origin.x, area.origin.x + area.width, bottom, tokens::BORDER_SUBTLE);
 
@@ -382,28 +360,6 @@ void TransfersScreen::DrawDownloads_(
 		tokens::SECONDARY_MUTED,
 		10.0f
 	);
-
-	if (progress.pendingWrites > 0) {
-		design::TextAt(
-			ImVec2(area.origin.x + 600.0f, bodyY + 5.0f),
-			std::format(text::transfers::PENDING_WRITES_FORMAT, progress.pendingWrites),
-			tokens::ACCENT,
-			10.0f
-		);
-	}
-
-	if (progress.hashFailures > 0 || progress.bannedPeers > 0) {
-		design::TextAt(
-			ImVec2(area.origin.x + 600.0f, bodyY + 20.0f),
-			std::format(
-				text::transfers::BAD_DATA_FORMAT,
-				progress.hashFailures,
-				progress.bannedPeers
-			),
-			tokens::FAILURE,
-			10.0f
-		);
-	}
 
 	const std::uint64_t total = progress.heldBytes + progress.remoteBytes;
 	const std::uint64_t moved = progress.heldBytes + progress.fetchedBytes;

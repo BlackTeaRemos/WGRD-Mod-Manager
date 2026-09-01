@@ -6,6 +6,7 @@
 #include "domain/interfaces/content/IPayloadPathPolicy.h"
 #include "domain/interfaces/services/IPublishService.h"
 #include "domain/interfaces/services/ISeedingService.h"
+#include "manager/install/InstalledReleaseStore.h"
 #include "domain/interfaces/trust/IAnnounceCatalogue.h"
 #include "domain/interfaces/trust/IAnnounceReceiver.h"
 #include "domain/interfaces/trust/IKeyRegistry.h"
@@ -40,7 +41,8 @@ public:
 		domain::IAnnounceReceiver& receiver,
 		const domain::IAnnounceCatalogue& catalogue,
 		domain::IKeyRegistry& registry,
-		domain::ISeedingService* seeding = nullptr
+		domain::ISeedingService* seeding = nullptr,
+		const InstalledReleaseStore* installed = nullptr
 	);
 
 	~PublishService() override;
@@ -119,6 +121,7 @@ private:
 	const domain::IAnnounceCatalogue* _catalogue;
 	domain::IKeyRegistry* _registry;
 	domain::ISeedingService* _seeding;
+	const InstalledReleaseStore* _installed;
 
 	SigningKeyStore _keyStore;
 	ManifestBuilder _builder;

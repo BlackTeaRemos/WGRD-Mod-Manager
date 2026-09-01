@@ -37,6 +37,8 @@ wgrd_add_module(downloader
         storage/ModFolderStamp.cpp
         storage/SeedAttestations.h
         storage/SeedAttestations.cpp
+        storage/SeedingSwitch.h
+        storage/SeedingSwitch.cpp
         storage/SeedStampStore.h
         storage/SeedStampStore.cpp
         storage/StorageBacklog.h

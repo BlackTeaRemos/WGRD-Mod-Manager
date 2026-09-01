@@ -75,6 +75,17 @@ TorrentSession::TorrentSession(
 
 TorrentSession::~TorrentSession() = default;
 
+void TorrentSession::RestoreSeedingPreference(std::filesystem::path folder) {
+	_seedingSwitch.UseFolder(std::move(folder));
+
+	const std::optional<bool> stored = _seedingSwitch.Load();
+	if (!stored.has_value()) {
+		return;
+	}
+
+	_enabled = *stored;
+}
+
 void TorrentSession::UseTorrentCache(std::filesystem::path folder) {
 	_stamps.UseFolder(folder);
 	_torrents = TorrentCache(std::move(folder));
@@ -201,6 +212,8 @@ bool TorrentSession::Enabled() const {
 
 void TorrentSession::SetEnabled(const bool enabled) {
 	_enabled = enabled;
+
+	_seedingSwitch.Save(enabled);
 
 	if (_session == nullptr) {
 		return;
@@ -565,9 +578,6 @@ void TorrentSession::Poll() {
 		_gossip.running = running;
 		_gossip.neighbourDials = _dialer.NeighbourDials();
 		_gossip.lastPeerError = _lastPeerError;
-		_gossip.lastFailure = _lastTransferFailure;
-		_gossip.readFailures = _faults.ReadFailures();
-		_gossip.writeFailures = _faults.WriteFailures();
 		_gossip.controlValid = _control != nullptr && _control->is_valid();
 		_gossip.controlPeers = _controlPeers;
 		_gossip.controlState = _controlState;

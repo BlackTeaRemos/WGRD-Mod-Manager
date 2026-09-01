@@ -83,6 +83,10 @@ wgrd_add_module(manager
         install/ManifestDiffer.cpp
         install/InstalledReleaseStore.h
         install/InstalledReleaseStore.cpp
+        mirror/MirrorSwitch.h
+        mirror/MirrorSwitch.cpp
+        service/MirrorService.h
+        service/MirrorService.cpp
         service/ModRemovalService.h
         service/ModRemovalService.cpp
         install/StagedChunkSource.h

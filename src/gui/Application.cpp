@@ -80,6 +80,10 @@ int Application::Run() {
 			AdoptFinishedInstalls_();
 		}
 
+		if (_services.mirror != nullptr) {
+			_services.mirror->Poll();
+		}
+
 		_backend->BeginFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
@@ -90,7 +94,21 @@ int Application::Run() {
 		_backend->Present(ImGui::GetDrawData());
 	}
 
+	SettleTransfers_();
+
 	return 0;
+}
+
+void Application::SettleTransfers_() {
+	if (_services.install == nullptr) {
+		return;
+	}
+
+	if (!_services.install->Progress().Busy()) {
+		return;
+	}
+
+	_services.install->Cancel();
 }
 
 void Application::AdoptFinishedInstalls_() {

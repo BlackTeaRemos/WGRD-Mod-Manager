@@ -32,6 +32,8 @@ private:
 
 	void AdoptFinishedInstalls_();
 
+	void SettleTransfers_();
+
 	Win32Window _window;
 	std::unique_ptr<IRenderBackend> _backend;
 	ApplicationState _state;

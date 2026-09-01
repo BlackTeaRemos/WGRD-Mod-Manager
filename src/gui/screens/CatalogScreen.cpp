@@ -113,6 +113,15 @@ void CatalogScreen::DrawRow_(
 		9.0f
 	);
 
+	if (!row.seedFault.empty()) {
+		design::TextAt(
+			ImVec2(rowTopLeft.x + 500.0f, cursorY + 22.0f),
+			row.seedFault,
+			tokens::FAILURE,
+			9.0f
+		);
+	}
+
 	ImVec2 actionTopLeft(rowBottomRight.x - 80.0f, cursorY + 6.0f);
 	ImVec2 actionBottomRight(actionTopLeft.x, actionTopLeft.y);
 

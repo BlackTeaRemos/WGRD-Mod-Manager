@@ -1,6 +1,7 @@
 #include "gui/shell/StatusBar.h"
 
 #include "domain/BuildInfo.h"
+#include "domain/types/distribution/RepositoryUri.h"
 #include "gui/design/Primitives.h"
 #include "gui/design/Tokens.h"
 #include "gui/text/CommonText.h"
@@ -49,7 +50,7 @@ namespace {
 			return std::string(text::shell::LOCAL_BUILD);
 		}
 
-		return std::string(repository);
+		return std::string(domain::RepositoryUri::Slug(repository));
 	}
 }
 
@@ -330,11 +331,12 @@ void StatusBar::DrawSupportPanel_(
 
 	rowY += 15.0f;
 
-	const std::array<std::string_view, 4> repositories = {
+	const std::array<std::string_view, 5> repositories = {
 		domain::build::SOURCE_REPOSITORY,
 		domain::build::RELEASE_REPOSITORY,
 		domain::build::INDEX_REPOSITORY,
-		domain::build::PATCHER_REPOSITORY
+		domain::build::PATCHER_REPOSITORY,
+		domain::build::TOOLKIT_REPOSITORY
 	};
 
 	std::vector<std::string_view> listed;
@@ -350,7 +352,7 @@ void StatusBar::DrawSupportPanel_(
 
 		listed.push_back(repository);
 
-		const std::string uri = std::string(text::shell::URI_PREFIX) + std::string(repository);
+		const std::string uri = domain::RepositoryUri::Https(repository);
 		const ImVec2 extent = design::MeasureText(uri, 10.0f);
 		const ImVec2 linkTopLeft(topLeft.x + 10.0f, rowY);
 		const ImVec2 linkBottomRight(linkTopLeft.x + extent.x, linkTopLeft.y + 12.0f);

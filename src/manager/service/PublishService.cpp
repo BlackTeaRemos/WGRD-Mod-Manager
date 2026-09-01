@@ -120,7 +120,8 @@ PublishService::PublishService(
 	domain::IAnnounceReceiver& receiver,
 	const domain::IAnnounceCatalogue& catalogue,
 	domain::IKeyRegistry& registry,
-	domain::ISeedingService* seeding
+	domain::ISeedingService* seeding,
+	const InstalledReleaseStore* installed
 )
 	: _modsDirectory(std::move(modsDirectory))
 	, _dataDirectory(std::move(dataDirectory))
@@ -130,6 +131,7 @@ PublishService::PublishService(
 	, _catalogue(&catalogue)
 	, _registry(&registry)
 	, _seeding(seeding)
+	, _installed(installed)
 	, _keyStore()
 	, _builder(chunker, hasher, pathPolicy)
 	, _codec(pathPolicy)
@@ -494,6 +496,15 @@ std::expected<domain::PublishedRelease, domain::PublishError> PublishService::Pu
 	}
 
 	_versions.insert_or_assign(identifier, version);
+
+	if (_installed != nullptr) {
+		const bool recorded = _installed->Save(domain::InstalledRelease{
+				identifier, manifest->ModName(), version, manifestDigest
+			}
+		);
+
+		(void)recorded;
+	}
 
 	if (_seeding != nullptr) {
 		_seeding->AttestContent(

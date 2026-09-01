@@ -10,6 +10,7 @@
 #include "downloader/storage/ChunkLocator.h"
 #include "downloader/storage/ModFolderStamp.h"
 #include "downloader/storage/SeedAttestations.h"
+#include "downloader/storage/SeedingSwitch.h"
 #include "downloader/storage/OpenFileCache.h"
 #include "downloader/storage/StorageBacklog.h"
 #include "downloader/storage/SeedStampStore.h"
@@ -61,6 +62,8 @@ public:
 	);
 
 	void UseTorrentCache(std::filesystem::path folder);
+
+	void RestoreSeedingPreference(std::filesystem::path folder);
 
 	void StartGossip(
 		domain::IAnnounceCatalogue& catalogue,
@@ -154,6 +157,7 @@ private:
 	OpenFileCache _handles;
 	SeedAttestations _attestations;
 	SeedStampStore _stamps;
+	SeedingSwitch _seedingSwitch;
 	TorrentCache _torrents;
 	std::unique_ptr<AnnounceExchange> _exchange;
 	std::unique_ptr<libtorrent::session> _session;

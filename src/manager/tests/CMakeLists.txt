@@ -15,6 +15,7 @@
         UpdateRoundTripTests.cpp
         AnnounceTests.cpp
         ProfileTests.cpp
+        StagedFolderScanTests.cpp
         UpdateTests.cpp
         InstallServiceTests.cpp
         InstallSeedingCoordinationTests.cpp

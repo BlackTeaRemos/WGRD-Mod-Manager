@@ -180,6 +180,26 @@ void Modals::DrawSettings_(const ImVec2 frameOrigin, const float frameWidth, App
 	}
 	cursorY += 30.0f;
 
+	const domain::MirrorStatus mirror = services.mirror != nullptr
+	                                    ? services.mirror->Status()
+	                                    : domain::MirrorStatus{};
+
+	if (ToggleRow(ImVec2(origin.x, cursorY), SETTINGS_WIDTH, text::modal::MIRROR, text::modal::MIRROR_HINT, mirror.enabled)
+	    && services.mirror != nullptr) {
+		services.mirror->SetEnabled(!mirror.enabled);
+	}
+	cursorY += 30.0f;
+
+	if (mirror.enabled) {
+		design::TextAt(
+			ImVec2(origin.x + 6.0f, cursorY),
+			std::format(text::modal::MIRROR_PENDING_FORMAT, mirror.pending, mirror.claimed),
+			mirror.pending > 0 ? tokens::ACCENT : tokens::SECONDARY_MUTED,
+			10.0f
+		);
+		cursorY += 16.0f;
+	}
+
 	design::TextAt(ImVec2(origin.x + 6.0f, cursorY), text::modal::TRANSPORT_NOTE, tokens::TEXT_DISABLED, 10.0f);
 	cursorY += 14.0f;
 	design::TextAt(ImVec2(origin.x + 6.0f, cursorY), text::modal::CHUNKING_NOTE, tokens::TEXT_DISABLED, 10.0f);

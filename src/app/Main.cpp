@@ -13,6 +13,7 @@
 #include "manager/payload/PayloadPathPolicy.h"
 #include "manager/service/CatalogService.h"
 #include "manager/service/InstallService.h"
+#include "manager/service/MirrorService.h"
 #include "manager/service/ModRemovalService.h"
 #include "manager/service/OrderService.h"
 #include "manager/profile/SteamUserdataLocator.h"
@@ -80,6 +81,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 	std::unique_ptr<wgrd::manager::InstalledReleaseStore> installedStore;
 	std::unique_ptr<wgrd::manager::InstallService> installService;
 	std::unique_ptr<wgrd::manager::ModRemovalService> removalService;
+	std::unique_ptr<wgrd::manager::MirrorService> mirrorService;
 
 	const std::filesystem::path swarmSavePath = installation
 	                                            ? installation->modsDirectory
@@ -91,6 +93,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 		const std::filesystem::path dataDirectory = installation->modsDirectory / DATA_FOLDER;
 
 		swarm.UseTorrentCache(dataDirectory / TORRENT_FOLDER);
+		swarm.RestoreSeedingPreference(dataDirectory);
 
 		orderService = std::make_unique<wgrd::manager::OrderService>(*installation);
 
@@ -117,6 +120,10 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 
 		authenticator = std::make_unique<wgrd::manager::ManifestAuthenticator>(*registry);
 
+		installedStore = std::make_unique<wgrd::manager::InstalledReleaseStore>(
+			dataDirectory / INSTALLED_FOLDER
+		);
+
 		publishService = std::make_unique<wgrd::manager::PublishService>(
 			installation->modsDirectory,
 			dataDirectory,
@@ -127,11 +134,8 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 			*receiver,
 			*receiver,
 			*registry,
-			&swarm
-		);
-
-		installedStore = std::make_unique<wgrd::manager::InstalledReleaseStore>(
-			dataDirectory / INSTALLED_FOLDER
+			&swarm,
+			installedStore.get()
 		);
 
 		catalogService = std::make_unique<wgrd::manager::CatalogService>(
@@ -168,6 +172,12 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 			installService.get()
 		);
 
+		mirrorService = std::make_unique<wgrd::manager::MirrorService>(
+			dataDirectory,
+			*catalogService,
+			*installService
+		);
+
 		registryUpdater = std::make_unique<wgrd::manager::RegistryUpdateService>(
 			std::string(wgrd::domain::build::INDEX_REPOSITORY),
 			dataDirectory / REGISTRY_FOLDER,
@@ -194,7 +204,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 
 	const wgrd::gui::ApplicationServices services{
 		orderService.get(), catalogService.get(), publishService.get(), &swarm, &swarm, installService.get(), &updateService, registryUpdater.get(), &filePicker, &uriLauncher, &swarm, profileService.get()
-		, removalService.get(), patcherService.get()
+		, removalService.get(), patcherService.get(), mirrorService.get()
 	};
 
 	wgrd::gui::Application application;

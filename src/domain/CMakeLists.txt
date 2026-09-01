@@ -14,6 +14,8 @@
         types/distribution/InstallPlan.cpp
         types/distribution/InstallPlan.h
         types/distribution/SignedAnnounce.h
+        types/distribution/RepositoryUri.h
+        types/distribution/RepositoryUri.cpp
         types/distribution/TransportLimits.h
         types/game/GameBuild.cpp
         types/game/GameBuild.h

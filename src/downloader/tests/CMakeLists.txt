@@ -8,6 +8,7 @@
         FastCdcChunkerTests.cpp
         FetchCompletionTests.cpp
         SeedAttestationTests.cpp
+        SeedingSwitchTests.cpp
         StorageClassificationTests.cpp
         SwarmTransferTests.cpp
         TorrentCacheTests.cpp

@@ -1,5 +1,6 @@
 #include "manager/scan/ModFolderScanner.h"
 
+#include "manager/install/ContentInstaller.h"
 #include "manager/scan/ModMetadataReader.h"
 
 #include <algorithm>
@@ -25,6 +26,10 @@ std::vector<domain::InstalledMod> ModFolderScanner::Scan(const std::filesystem::
 			continue;
 		}
 
+		if (!HoldsPayload(entry.path())) {
+			continue;
+		}
+
 		installed.push_back(domain::InstalledMod{
 				*folder, ReadBuilds_(entry.path()), ModMetadataReader::Read(entry.path())
 			}
@@ -37,6 +42,37 @@ std::vector<domain::InstalledMod> ModFolderScanner::Scan(const std::filesystem::
 	);
 
 	return installed;
+}
+
+bool ModFolderScanner::HoldsPayload(const std::filesystem::path& modDirectory) {
+	std::error_code walking;
+	std::filesystem::recursive_directory_iterator walker(modDirectory, walking);
+	const std::filesystem::recursive_directory_iterator walkEnd;
+
+	if (walking) {
+		return false;
+	}
+
+	bool sawStaging = false;
+
+	for (; walker != walkEnd; walker.increment(walking)) {
+		if (walking) {
+			return true;
+		}
+
+		if (!walker->is_regular_file(walking) || walking) {
+			continue;
+		}
+
+		if (walker->path().filename().string().ends_with(ContentInstaller::STAGING_SUFFIX)) {
+			sawStaging = true;
+			continue;
+		}
+
+		return true;
+	}
+
+	return !sawStaging;
 }
 
 std::vector<domain::GameBuild> ModFolderScanner::ReadBuilds_(const std::filesystem::path& modDirectory) {

@@ -15,6 +15,9 @@ constexpr std::string_view INSTALLED_FORMAT = "{} mods installed";
 constexpr std::string_view TRANSFER = "TRANSFER";
 constexpr std::string_view SEEDING = "seeding";
 constexpr std::string_view SEEDING_HINT = "serves installed mods";
+constexpr std::string_view MIRROR = "mirror every mod";
+constexpr std::string_view MIRROR_HINT = "downloads and follows updates";
+constexpr std::string_view MIRROR_PENDING_FORMAT = "{} waiting - {} claimed";
 constexpr std::string_view TRANSPORT_NOTE = "bittorrent trackerless dht lan";
 constexpr std::string_view CHUNKING_NOTE = "fastcdc chunking avg 4 MiB";
 

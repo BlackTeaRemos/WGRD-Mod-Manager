@@ -8,6 +8,7 @@
 #include "domain/interfaces/services/ICatalogService.h"
 #include "domain/interfaces/services/IInstallService.h"
 #include "domain/interfaces/services/IModRemovalService.h"
+#include "domain/interfaces/services/IMirrorService.h"
 #include "domain/interfaces/services/IPatcherService.h"
 #include "domain/interfaces/services/IPublishService.h"
 #include "domain/interfaces/services/ISeedingService.h"
@@ -31,5 +32,6 @@ struct ApplicationServices {
 	domain::IProfileService* profiles = nullptr;
 	domain::IModRemovalService* removal = nullptr;
 	domain::IPatcherService* patcher = nullptr;
+	domain::IMirrorService* mirror = nullptr;
 };
 }

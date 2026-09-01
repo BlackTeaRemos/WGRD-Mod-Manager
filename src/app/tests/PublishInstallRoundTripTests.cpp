@@ -261,7 +261,6 @@ TEST_CASE("published mod installs byte identical on a second peer") {
 	const wgrd::domain::InstallProgress progress = installService.Progress();
 
 	INFO("install message " << progress.message);
-	INFO("hash failures " << progress.hashFailures << " banned " << progress.bannedPeers);
 	REQUIRE(progress.phase == wgrd::domain::InstallPhase::Done);
 
 	for (const std::string& relative : {
