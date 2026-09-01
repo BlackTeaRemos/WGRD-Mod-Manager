@@ -10,6 +10,8 @@ public:
 	[[nodiscard]] virtual RegistryStatus Status() const = 0;
 
 	virtual void Poll() = 0;
+
+	virtual void Tick() = 0;
 };
 
 inline IRegistryUpdater::~IRegistryUpdater() = default;

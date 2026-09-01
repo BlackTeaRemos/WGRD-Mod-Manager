@@ -97,6 +97,7 @@ void RegistryUpdateService::RunPoll_() {
 		_status.phase = domain::RegistryPhase::Failed;
 		_status.message = "sync failed";
 		_status.keyCount = loaded;
+		_lastPoll = std::chrono::steady_clock::now();
 		_busy = false;
 		return;
 	}
@@ -110,6 +111,29 @@ void RegistryUpdateService::RunPoll_() {
 	_polled = true;
 
 	_busy = false;
+}
+
+bool RegistryUpdateService::Due_() const {
+	const std::scoped_lock lock(_guard);
+
+	if (!_polled) {
+		return _status.phase != domain::RegistryPhase::Failed
+		       || std::chrono::steady_clock::now() - _lastPoll >= RETRY_INTERVAL;
+	}
+
+	return std::chrono::steady_clock::now() - _lastPoll >= REFRESH_INTERVAL;
+}
+
+void RegistryUpdateService::Tick() {
+	if (_busy.load()) {
+		return;
+	}
+
+	if (!Due_()) {
+		return;
+	}
+
+	Poll();
 }
 
 void RegistryUpdateService::Poll() {

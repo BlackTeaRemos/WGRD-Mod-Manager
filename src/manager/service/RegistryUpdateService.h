@@ -18,6 +18,8 @@ class RegistryUpdateService final : public domain::IRegistryUpdater {
 public:
 	static constexpr std::string_view KEYS_FOLDER = "keys";
 	static constexpr std::string_view REVOKED_FOLDER = "revoked";
+	static constexpr std::chrono::minutes REFRESH_INTERVAL{30};
+	static constexpr std::chrono::seconds RETRY_INTERVAL{60};
 
 	RegistryUpdateService(
 		std::string repository,
@@ -35,7 +37,11 @@ public:
 
 	void Poll() override;
 
+	void Tick() override;
+
 private:
+	[[nodiscard]] bool Due_() const;
+
 	void RunPoll_();
 
 	void JoinWorker_();

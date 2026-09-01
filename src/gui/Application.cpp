@@ -80,6 +80,10 @@ int Application::Run() {
 			AdoptFinishedInstalls_();
 		}
 
+		if (_services.registry != nullptr) {
+			_services.registry->Tick();
+		}
+
 		if (_services.mirror != nullptr) {
 			_services.mirror->Poll();
 		}
