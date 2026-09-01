@@ -236,6 +236,16 @@ std::vector<std::pair<std::string, std::uint16_t>> AnnounceExchange::TakeNotedPe
 	return taken;
 }
 
+void AnnounceExchange::UseControlHashes(libtorrent::info_hash_t hashes) {
+	const std::scoped_lock lock(_guard);
+	_controlHashes = hashes;
+}
+
+bool AnnounceExchange::IsControl(const libtorrent::info_hash_t& hashes) const {
+	const std::scoped_lock lock(_guard);
+	return _controlHashes == hashes;
+}
+
 void AnnounceExchange::RequestRefresh() {
 	const std::scoped_lock lock(_guard);
 	_refreshGeneration += 1;

@@ -111,6 +111,8 @@ void TorrentSession::StartGossip(
 		return;
 	}
 
+	_exchange->UseControlHashes(prepared->parameters.ti->info_hashes());
+
 	libtorrent::error_code adding;
 	libtorrent::torrent_handle handle =
 			_session->add_torrent(std::move(prepared->parameters), adding);

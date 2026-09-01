@@ -5,6 +5,8 @@
 #include "domain/types/status/GossipStatus.h"
 #include "downloader/announce/PeerAnnounceBudget.h"
 
+#include <libtorrent/info_hash.hpp>
+
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -64,6 +66,10 @@ public:
 
 	[[nodiscard]] std::vector<std::pair<std::string, std::uint16_t>> TakeNotedPeers();
 
+	void UseControlHashes(libtorrent::info_hash_t hashes);
+
+	[[nodiscard]] bool IsControl(const libtorrent::info_hash_t& hashes) const;
+
 	void RequestRefresh();
 
 	[[nodiscard]] std::uint64_t RefreshGeneration() const;
@@ -80,6 +86,7 @@ private:
 	mutable std::mutex _guard;
 	std::map<std::string, PeerAnnounceBudget> _budgets;
 	domain::GossipStatus _status;
+	libtorrent::info_hash_t _controlHashes;
 	std::vector<std::pair<std::string, std::uint16_t>> _noted;
 	std::uint64_t _refreshGeneration = 0;
 	std::uint16_t _listenPort = 0;

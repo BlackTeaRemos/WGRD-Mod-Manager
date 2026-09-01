@@ -18,6 +18,9 @@ public:
 	static constexpr int LOCAL_MESSAGE_ID = 111;
 	static constexpr std::chrono::seconds REOFFER_INTERVAL{60};
 	static constexpr std::chrono::seconds HOLDINGS_POLL_INTERVAL{2};
+	static constexpr std::string_view REVISION_KEY = "wgrd_rev";
+	static constexpr std::int64_t LOCAL_REVISION = 1;
+	static constexpr std::int64_t ASK_REVISION = 1;
 
 	AnnounceGossipPeerPlugin(
 		libtorrent::peer_connection_handle connection,
@@ -62,5 +65,6 @@ private:
 	std::chrono::steady_clock::time_point _lastOffer;
 	std::chrono::steady_clock::time_point _lastHoldingsPoll;
 	std::uint64_t _seenRefresh = 0;
+	std::int64_t _remoteRevision = 0;
 };
 }

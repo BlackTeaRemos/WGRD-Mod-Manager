@@ -68,6 +68,8 @@ void AnnounceGossipPeerPlugin::add_handshake(libtorrent::entry& handshake) {
 
 	messages[std::string(EXTENSION_NAME)] = libtorrent::entry(LOCAL_MESSAGE_ID);
 
+	handshake[std::string(REVISION_KEY)] = libtorrent::entry(LOCAL_REVISION);
+
 	const std::uint16_t listening = _exchange->ListenPort();
 	if (listening != 0) {
 		handshake["p"] = libtorrent::entry(static_cast<std::int64_t>(listening));
@@ -94,6 +96,11 @@ bool AnnounceGossipPeerPlugin::on_extension_handshake(const libtorrent::bdecode_
 	}
 
 	_remoteMessageId = static_cast<int>(advertised);
+
+	_remoteRevision = handshake.dict_find_int_value(
+		libtorrent::string_view(REVISION_KEY.data(), REVISION_KEY.size()),
+		0
+	);
 
 	const std::int64_t listening = handshake.dict_find_int_value("p", 0);
 
@@ -252,7 +259,6 @@ bool AnnounceGossipPeerPlugin::on_extended(
 
 	const auto kind = AnnounceWireCodec::MessageOf(AsBytes(body));
 	if (!kind.has_value()) {
-		PenaliseAndDisconnect_();
 		return true;
 	}
 
@@ -294,7 +300,10 @@ void AnnounceGossipPeerPlugin::tick() {
 	if (generation != _seenRefresh) {
 		_seenRefresh = generation;
 
-		Send_(AnnounceWireCodec::EncodeAsk());
+		if (_remoteRevision >= ASK_REVISION) {
+			Send_(AnnounceWireCodec::EncodeAsk());
+		}
+
 		SendOffer_(_exchange->Holdings());
 
 		return;
