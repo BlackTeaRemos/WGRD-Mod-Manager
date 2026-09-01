@@ -6,6 +6,8 @@
 #include "gui/text/CommonText.h"
 #include "gui/text/ModalText.h"
 
+#include <array>
+#include <cstdint>
 #include <format>
 #include <string>
 
@@ -199,6 +201,8 @@ void Modals::DrawSettings_(const ImVec2 frameOrigin, const float frameWidth, App
 		);
 		cursorY += 16.0f;
 	}
+
+	cursorY = DrawLinkBudget_(origin, cursorY, services.swarm);
 
 	design::TextAt(ImVec2(origin.x + 6.0f, cursorY), text::modal::TRANSPORT_NOTE, tokens::TEXT_DISABLED, 10.0f);
 	cursorY += 14.0f;
@@ -478,6 +482,54 @@ float Modals::DrawUpdates_(const ImVec2 origin, float cursorY, ApplicationState&
 	return cursorY + 40.0f;
 }
 
+
+float Modals::DrawLinkBudget_(const ImVec2 origin, float cursorY, domain::ISwarmService* swarm) const {
+	if (swarm == nullptr) {
+		return cursorY;
+	}
+
+	constexpr std::int64_t MEBIBYTE = 1024LL * 1024LL;
+	constexpr std::array<std::int64_t, 6> PRESETS = {0, 2, 8, 25, 100, 500};
+
+	design::TextAt(ImVec2(origin.x + 6.0f, cursorY), text::modal::LINK_BUDGET, tokens::SECONDARY_MUTED, 10.0f);
+	cursorY += 14.0f;
+
+	const std::int64_t current = swarm->LinkBudget();
+
+	float cursorX = origin.x + 6.0f;
+
+	for (const std::int64_t preset : PRESETS) {
+		const std::string label = preset == 0
+		                          ? std::string(text::modal::BUDGET_UNLIMITED)
+		                          : std::format(text::modal::BUDGET_MIB_FORMAT, preset);
+
+		const bool active = current == preset * MEBIBYTE;
+
+		const design::ButtonVariant variant = active
+		                                      ? design::ButtonVariant::Accent
+		                                      : design::ButtonVariant::Neutral;
+
+		if (design::Button(ImVec2(cursorX, cursorY), label, variant, !active) && !active) {
+			swarm->SetLinkBudget(preset * MEBIBYTE);
+		}
+
+		cursorX += design::ButtonSize(label).x + 4.0f;
+	}
+
+	cursorY += 22.0f;
+
+	if (current != 0) {
+		design::TextAt(
+			ImVec2(origin.x + 6.0f, cursorY),
+			text::modal::BUDGET_RESERVE_NOTE,
+			tokens::TEXT_DISABLED,
+			10.0f
+		);
+		cursorY += 14.0f;
+	}
+
+	return cursorY + 6.0f;
+}
 
 float Modals::DrawTrust_(const ImVec2 origin, float cursorY, domain::IRegistryUpdater* updater) const {
 	design::HeadingBar(ImVec2(origin.x, cursorY), SETTINGS_WIDTH, text::modal::TRUST_REGISTRY, design::HeadingLevel::Minor);

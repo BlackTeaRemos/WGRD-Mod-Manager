@@ -11,6 +11,7 @@
 #include "downloader/storage/ModFolderStamp.h"
 #include "downloader/storage/SeedAttestations.h"
 #include "downloader/storage/SeedingSwitch.h"
+#include "downloader/storage/TransferBudget.h"
 #include "downloader/storage/OpenFileCache.h"
 #include "downloader/storage/StorageBacklog.h"
 #include "downloader/storage/SeedStampStore.h"
@@ -51,9 +52,8 @@ public:
 	static constexpr std::string_view TORRENT_CACHE_FOLDER = ".wgrdmm/torrents";
 	static constexpr std::chrono::milliseconds WRITE_DRAIN_TIMEOUT{30000};
 	static constexpr int CONTROL_CHANNEL_RESERVE_BYTES_PER_SECOND = 512 * 1024;
-	static constexpr int BULK_LINK_BUDGET_BYTES_PER_SECOND = 8 * 1024 * 1024;
-	static constexpr int BULK_RATE_CEILING_BYTES_PER_SECOND =
-			BULK_LINK_BUDGET_BYTES_PER_SECOND - CONTROL_CHANNEL_RESERVE_BYTES_PER_SECOND;
+	static constexpr int UNLIMITED_RATE = -1;
+	static constexpr int MINIMUM_BULK_RATE_BYTES_PER_SECOND = 64 * 1024;
 
 	explicit TorrentSession(
 		std::filesystem::path savePath,
@@ -64,6 +64,14 @@ public:
 	void UseTorrentCache(std::filesystem::path folder);
 
 	void RestoreSeedingPreference(std::filesystem::path folder);
+
+	void RestoreTransferBudget(std::filesystem::path folder);
+
+	[[nodiscard]] std::int64_t LinkBudget() const override;
+
+	void SetLinkBudget(std::int64_t bytesPerSecond) override;
+
+	[[nodiscard]] int BulkRateCeiling() const;
 
 	void StartGossip(
 		domain::IAnnounceCatalogue& catalogue,
@@ -141,7 +149,9 @@ public:
 	[[nodiscard]] int ControlDownloadLimit() const;
 
 private:
-	static void CapBulkTransfer_(libtorrent::torrent_handle& handle);
+	void CapBulkTransfer_(libtorrent::torrent_handle& handle) const;
+
+	void ReapplyBulkLimits_();
 
 	void DialLoopbackNeighbours_();
 
@@ -158,6 +168,8 @@ private:
 	SeedAttestations _attestations;
 	SeedStampStore _stamps;
 	SeedingSwitch _seedingSwitch;
+	TransferBudget _budgetStore;
+	std::int64_t _linkBudget = TransferBudget::UNLIMITED;
 	TorrentCache _torrents;
 	std::unique_ptr<AnnounceExchange> _exchange;
 	std::unique_ptr<libtorrent::session> _session;

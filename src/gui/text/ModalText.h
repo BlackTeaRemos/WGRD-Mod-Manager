@@ -18,6 +18,10 @@ constexpr std::string_view SEEDING_HINT = "serves installed mods";
 constexpr std::string_view MIRROR = "mirror every mod";
 constexpr std::string_view MIRROR_HINT = "downloads and follows updates";
 constexpr std::string_view MIRROR_PENDING_FORMAT = "{} waiting - {} claimed";
+constexpr std::string_view LINK_BUDGET = "LINK BUDGET";
+constexpr std::string_view BUDGET_UNLIMITED = "UNLIMITED";
+constexpr std::string_view BUDGET_MIB_FORMAT = "{} MiB/s";
+constexpr std::string_view BUDGET_RESERVE_NOTE = "reserves control bandwidth";
 constexpr std::string_view TRANSPORT_NOTE = "bittorrent trackerless dht lan";
 constexpr std::string_view CHUNKING_NOTE = "fastcdc chunking avg 4 MiB";
 

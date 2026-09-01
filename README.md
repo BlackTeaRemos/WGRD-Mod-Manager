@@ -2,39 +2,32 @@
 
 A signed, peer to peer mod manager for Wargame: Red Dragon.
 
+![The catalog, showing a signed mod and its manifest detail](.github/asset/catalog.png)
+
 ## What it does
 
-**Distributes mods peer to peer.**
+**Distributes mods peer to peer**
 Releases move over BitTorrent v2 between players.
 
-**Only downloads what changed.**
-Content is split into chunks by content, not by offset.
-An update to a 4 GiB mod transfers the few megabytes that actually differ, and patches the existing files in place rather than rewriting the folder.
+**Only downloads what changed**
+No longer redownloading 9gb of data every update, or obscure replacement.
 
-**Verifies everything before it exists.**
-Every release is an ed25519 signed manifest.
-A signature that does not check against a registered key is discarded before it is parsed, shown, or counted.
-Mod identity is namespaced under the publisher key, so nobody can shadow another author's mod.
+**Mod makers verified by cryptography**
+Every single release signed and goes through signature registry, allowing secure update, while also maintaining ease of updating mods.
 
-**Handles revocation.**
-A publisher can retire their own key with a signed certificate.
-Managers stop trusting it, stop seeding its content, and mark anything installed from it as unsigned.
-Your files are never deleted.
 
-**Manages load order.**
-Drag entries, toggle them, and the manager writes `Mods/load_order.txt`.
-That is the only file it puts in your game directory.
-Warnings annotate, they never block.
+**Manages enabled mods**
+Multiple mods can be enabled, if they support it, and users can quickly switch between mods they play without reinstalling.
 
-**Manages profiles.**
-Each Steam account gets its own profiles.
-A profile pairs a load order with a copy of your `.wargameprofile` save, so switching setups switches both.
-The active profile follows your live order automatically.
+**Manages profiles**
+So you no longer loose which profile goes with which mod or pack, and keep all your decks with them.
 
-**Installs the patcher.**
-Fetches and installs [WRG-Patcher](https://github.com/BlackTeaRemos/WRG-Patcher), the proxy DLL that makes the game load mods at all, and keeps it current.
+![Profiles, pairing a load order with a saved game profile](.github/asset/profile.png)
 
-**Updates itself.**
+**All in one installer**
+Fetches and installs everything it needs with simplicity in mind, including [WRG-Patcher](https://github.com/BlackTeaRemos/WRG-Patcher), the proxy DLL that makes the game load mods at all.
+
+**Updates itself**
 Checks its own releases and swaps the executable in place.
 
 ## Installing
@@ -44,7 +37,7 @@ Drop `wgrd-mod-manager.exe` into your Wargame: Red Dragon folder, beside `WarGam
 ## Publishing a mod
 
 1. CREATE KEY in the Publish tab, choosing where to store it
-2. Submit `keys/<fingerprint>.json` to the [signature registry](https://github.com/BlackTeaRemos/WGRD-Mod-Manager-Signatures)
+2. Submit `keys/<fingerprint>.json` to the [signature registry](https://github.com/BlackTeaRemos/WGRD-Mod-Manager-Signatures), contact @BlackTeaRemos on Discord for approval steps, at https://discord.gg/tMDWaBqSsu. Can be done only once, after approval, mods can be signed with key.
 3. Pick your mod folder, unlock the key, SIGN AND ANNOUNCE
 
 Your key file stays on your machine.
@@ -67,5 +60,7 @@ Copy `scripts/ToolchainPaths.local.ps1.example` to `scripts/ToolchainPaths.local
 GNU General Public License, version 3.
 See [LICENSE](LICENSE).
 
-Contributions are accepted under the [Contributor License Agreement](CLA.md), which lets the project owner relicense the combined work.
+Contributions are accepted under the [Contributor License Agreement](CLA.md).
+You are granting us a non-revocable license to the work you submit. Make sure you agree with it.
+
 Third party components and their licences are listed in [THIRD-PARTY.md](THIRD-PARTY.md).

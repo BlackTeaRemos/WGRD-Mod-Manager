@@ -16,6 +16,7 @@ public:
 
 private:
 	void DrawSettings_(ImVec2 frameOrigin, float frameWidth, ApplicationState& state, const ApplicationServices& services);
+	float DrawLinkBudget_(ImVec2 origin, float cursorY, domain::ISwarmService* swarm) const;
 	float DrawTrust_(ImVec2 origin, float cursorY, domain::IRegistryUpdater* updater) const;
 	float DrawUpdates_(ImVec2 origin, float cursorY, ApplicationState& state, domain::IUpdateService* updates) const;
 	void DrawDetail_(

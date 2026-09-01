@@ -504,13 +504,72 @@ std::size_t TorrentSession::RegisteredDestinations() const {
 	return _locator.DestinationCount();
 }
 
-void TorrentSession::CapBulkTransfer_(libtorrent::torrent_handle& handle) {
+int TorrentSession::BulkRateCeiling() const {
+	if (_linkBudget <= TransferBudget::UNLIMITED) {
+		return UNLIMITED_RATE;
+	}
+
+	const std::int64_t remaining = _linkBudget - CONTROL_CHANNEL_RESERVE_BYTES_PER_SECOND;
+
+	if (remaining < MINIMUM_BULK_RATE_BYTES_PER_SECOND) {
+		return MINIMUM_BULK_RATE_BYTES_PER_SECOND;
+	}
+
+	return static_cast<int>(remaining);
+}
+
+void TorrentSession::CapBulkTransfer_(libtorrent::torrent_handle& handle) const {
 	if (!handle.is_valid()) {
 		return;
 	}
 
-	handle.set_upload_limit(BULK_RATE_CEILING_BYTES_PER_SECOND);
-	handle.set_download_limit(BULK_RATE_CEILING_BYTES_PER_SECOND);
+	const int ceiling = BulkRateCeiling();
+
+	handle.set_upload_limit(ceiling);
+	handle.set_download_limit(ceiling);
+}
+
+void TorrentSession::ReapplyBulkLimits_() {
+	for (const SeedHandleView& view : _roster.Handles()) {
+		if (view.handle != nullptr && view.handle->is_valid()) {
+			CapBulkTransfer_(*view.handle);
+		}
+	}
+
+	std::optional<libtorrent::torrent_handle> active = _fetchState.Active();
+	if (active.has_value() && active->is_valid()) {
+		CapBulkTransfer_(*active);
+	}
+}
+
+void TorrentSession::RestoreTransferBudget(std::filesystem::path folder) {
+	_budgetStore.UseFolder(std::move(folder));
+
+	const std::optional<std::int64_t> stored = _budgetStore.Load();
+	if (!stored.has_value()) {
+		return;
+	}
+
+	_linkBudget = *stored;
+
+	ReapplyBulkLimits_();
+}
+
+std::int64_t TorrentSession::LinkBudget() const {
+	return _linkBudget;
+}
+
+void TorrentSession::SetLinkBudget(const std::int64_t bytesPerSecond) {
+	if (bytesPerSecond < TransferBudget::UNLIMITED
+	    || bytesPerSecond > TransferBudget::MAXIMUM_BYTES_PER_SECOND) {
+		return;
+	}
+
+	_linkBudget = bytesPerSecond;
+
+	_budgetStore.Save(bytesPerSecond);
+
+	ReapplyBulkLimits_();
 }
 
 int TorrentSession::SeededUploadLimit(const std::string_view identifier) const {

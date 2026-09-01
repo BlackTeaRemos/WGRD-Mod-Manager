@@ -41,6 +41,8 @@ wgrd_add_module(downloader
         storage/SeedingSwitch.cpp
         storage/SeedStampStore.h
         storage/SeedStampStore.cpp
+        storage/TransferBudget.h
+        storage/TransferBudget.cpp
         storage/StorageBacklog.h
         storage/StorageBacklog.cpp
         storage/StorageFaults.h

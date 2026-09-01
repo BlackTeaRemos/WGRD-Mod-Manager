@@ -94,6 +94,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 
 		swarm.UseTorrentCache(dataDirectory / TORRENT_FOLDER);
 		swarm.RestoreSeedingPreference(dataDirectory);
+		swarm.RestoreTransferBudget(dataDirectory);
 
 		orderService = std::make_unique<wgrd::manager::OrderService>(*installation);
 

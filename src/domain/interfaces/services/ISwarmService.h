@@ -21,6 +21,10 @@ public:
 	[[nodiscard]] virtual const SwarmStatus& Status() const = 0;
 
 	virtual void Poll() = 0;
+
+	[[nodiscard]] virtual std::int64_t LinkBudget() const = 0;
+
+	virtual void SetLinkBudget(std::int64_t bytesPerSecond) = 0;
 };
 
 inline ISwarmService::~ISwarmService() = default;

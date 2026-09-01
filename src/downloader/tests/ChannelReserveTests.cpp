@@ -149,16 +149,42 @@ std::uint16_t AwaitPort(TorrentSession& session) {
 }
 }
 
-TEST_CASE("bulk ceiling leaves the control reserve") {
-	REQUIRE(TorrentSession::BULK_RATE_CEILING_BYTES_PER_SECOND
-	        + TorrentSession::CONTROL_CHANNEL_RESERVE_BYTES_PER_SECOND
-	        == TorrentSession::BULK_LINK_BUDGET_BYTES_PER_SECOND
-	);
-	REQUIRE(TorrentSession::CONTROL_CHANNEL_RESERVE_BYTES_PER_SECOND > 0);
-	REQUIRE(TorrentSession::BULK_RATE_CEILING_BYTES_PER_SECOND > 0);
+TEST_CASE("bulk runs unlimited until a budget is set") {
+	const TemporaryTree tree("budget-default");
+
+	TorrentSession session(tree.Root(), std::string(LOOPBACK), false);
+
+	REQUIRE(session.LinkBudget() == 0);
+	REQUIRE(session.BulkRateCeiling() == TorrentSession::UNLIMITED_RATE);
 }
 
-TEST_CASE("seeded torrents carry the bulk ceiling") {
+TEST_CASE("a budget leaves the control reserve to the control channel") {
+	const TemporaryTree tree("budget-reserve");
+
+	TorrentSession session(tree.Root(), std::string(LOOPBACK), false);
+
+	constexpr std::int64_t BUDGET = 8 * 1024 * 1024;
+
+	session.SetLinkBudget(BUDGET);
+
+	REQUIRE(session.LinkBudget() == BUDGET);
+	REQUIRE(session.BulkRateCeiling()
+	        + TorrentSession::CONTROL_CHANNEL_RESERVE_BYTES_PER_SECOND
+	        == BUDGET
+	);
+}
+
+TEST_CASE("a tiny budget still leaves bulk able to move") {
+	const TemporaryTree tree("budget-tiny");
+
+	TorrentSession session(tree.Root(), std::string(LOOPBACK), false);
+
+	session.SetLinkBudget(TorrentSession::CONTROL_CHANNEL_RESERVE_BYTES_PER_SECOND);
+
+	REQUIRE(session.BulkRateCeiling() == TorrentSession::MINIMUM_BULK_RATE_BYTES_PER_SECOND);
+}
+
+TEST_CASE("seeded torrents follow the budget") {
 	const TemporaryTree tree("seed-ceiling");
 
 	const ModManifest manifest = BuildManifest({20000, 50000});
@@ -174,12 +200,13 @@ TEST_CASE("seeded torrents carry the bulk ceiling") {
 
 	REQUIRE(session.Announce(manifest, modFolder, sealedPath).has_value());
 
-	REQUIRE(session.SeededUploadLimit(manifest.Identifier())
-	        == TorrentSession::BULK_RATE_CEILING_BYTES_PER_SECOND
-	);
-	REQUIRE(session.SeededDownloadLimit(manifest.Identifier())
-	        == TorrentSession::BULK_RATE_CEILING_BYTES_PER_SECOND
-	);
+	REQUIRE(session.SeededUploadLimit(manifest.Identifier()) == TorrentSession::UNLIMITED_RATE);
+	REQUIRE(session.SeededDownloadLimit(manifest.Identifier()) == TorrentSession::UNLIMITED_RATE);
+
+	session.SetLinkBudget(8 * 1024 * 1024);
+
+	REQUIRE(session.SeededUploadLimit(manifest.Identifier()) == session.BulkRateCeiling());
+	REQUIRE(session.SeededDownloadLimit(manifest.Identifier()) == session.BulkRateCeiling());
 }
 
 TEST_CASE("fetch torrents carry the bulk ceiling") {
@@ -200,8 +227,13 @@ TEST_CASE("fetch torrents carry the bulk ceiling") {
 		).has_value()
 	);
 
-	REQUIRE(session.FetchUploadLimit() == TorrentSession::BULK_RATE_CEILING_BYTES_PER_SECOND);
-	REQUIRE(session.FetchDownloadLimit() == TorrentSession::BULK_RATE_CEILING_BYTES_PER_SECOND);
+	REQUIRE(session.FetchUploadLimit() == TorrentSession::UNLIMITED_RATE);
+	REQUIRE(session.FetchDownloadLimit() == TorrentSession::UNLIMITED_RATE);
+
+	session.SetLinkBudget(8 * 1024 * 1024);
+
+	REQUIRE(session.FetchUploadLimit() == session.BulkRateCeiling());
+	REQUIRE(session.FetchDownloadLimit() == session.BulkRateCeiling());
 
 	session.Cancel();
 }
