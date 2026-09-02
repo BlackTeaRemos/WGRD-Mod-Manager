@@ -2,6 +2,7 @@
     EXECUTABLE
     SOURCES
         Main.cpp
+        resources/AppIcon.rc
     DEPS
         domain
         manager

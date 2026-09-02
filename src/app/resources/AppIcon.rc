@@ -1,0 +1,3 @@
+#include "gui/platform/WindowIconResource.h"
+
+WGRD_WINDOW_ICON ICON "wgrd-mod-manager.ico"

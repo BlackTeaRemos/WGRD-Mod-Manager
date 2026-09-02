@@ -1,9 +1,9 @@
 ﻿cmake_minimum_required(VERSION 3.28)
 
 project(WgrdModManager
-    VERSION 1.1.1
+    VERSION 1.2.0
     DESCRIPTION "Mod manager for Wargame Red Dragon"
-    LANGUAGES CXX
+    LANGUAGES CXX RC
 )
 
 option(WGRD_BUILD_TESTS "Build test targets" ON)

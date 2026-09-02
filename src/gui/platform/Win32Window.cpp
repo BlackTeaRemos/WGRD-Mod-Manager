@@ -1,5 +1,7 @@
 ﻿#include "gui/platform/Win32Window.h"
 
+#include "gui/platform/WindowIconResource.h"
+
 #include <dwmapi.h>
 #include <imgui_impl_win32.h>
 #include <windowsx.h>
@@ -26,6 +28,24 @@ bool Win32Window::Create(const std::wstring& title, const std::uint32_t width, c
 	description.hInstance = _instance;
 	description.hCursor = LoadCursorW(nullptr, IDC_ARROW);
 	description.lpszClassName = WINDOW_CLASS_NAME;
+
+	description.hIcon = static_cast<HICON>(LoadImageW(
+		_instance,
+		MAKEINTRESOURCEW(WGRD_WINDOW_ICON),
+		IMAGE_ICON,
+		GetSystemMetrics(SM_CXICON),
+		GetSystemMetrics(SM_CYICON),
+		LR_DEFAULTCOLOR
+	));
+
+	description.hIconSm = static_cast<HICON>(LoadImageW(
+		_instance,
+		MAKEINTRESOURCEW(WGRD_WINDOW_ICON),
+		IMAGE_ICON,
+		GetSystemMetrics(SM_CXSMICON),
+		GetSystemMetrics(SM_CYSMICON),
+		LR_DEFAULTCOLOR
+	));
 
 	RegisterClassExW(&description);
 
