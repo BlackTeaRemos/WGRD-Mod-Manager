@@ -1,4 +1,4 @@
-﻿#include "gui/state/ApplicationState.h"
+#include "gui/state/ApplicationState.h"
 
 #include <utility>
 
@@ -18,6 +18,7 @@ bool ApplicationState::SettingsOpen() const noexcept {
 
 void ApplicationState::OpenSettings() noexcept {
 	_settingsOpen = true;
+	_detailTarget.clear();
 }
 
 void ApplicationState::CloseSettings() noexcept {
@@ -33,6 +34,7 @@ const std::string& ApplicationState::DetailTarget() const noexcept {
 }
 
 void ApplicationState::OpenDetail(std::string target) {
+	_settingsOpen = false;
 	_detailTarget = std::move(target);
 }
 
@@ -53,7 +55,7 @@ std::size_t ApplicationState::PublishStep() const noexcept {
 }
 
 void ApplicationState::SetPublishStep(const std::size_t step) noexcept {
-	_publishStep = step > 3 ? 3 : step;
+	_publishStep = step > 2 ? 2 : step;
 }
 
 std::size_t ApplicationState::CatalogFilter() const noexcept {
@@ -70,6 +72,18 @@ bool ApplicationState::ExitRequested() const noexcept {
 
 void ApplicationState::RequestExit() noexcept {
 	_exitRequested = true;
+}
+
+void ApplicationState::ClearExitRequest() noexcept {
+	_exitRequested = false;
+}
+
+bool ApplicationState::BackgroundOnClose() const noexcept {
+	return _backgroundOnClose;
+}
+
+void ApplicationState::SetBackgroundOnClose(const bool enabled) noexcept {
+	_backgroundOnClose = enabled;
 }
 
 const std::string& ApplicationState::PublishFolder() const noexcept {

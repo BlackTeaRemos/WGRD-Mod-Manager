@@ -4,6 +4,15 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 wgrd_add_module(manager
     SOURCES
+        service/install/InstallVerification.cpp
+        service/install/InstallManifestWorkflow.cpp
+        service/install/InstallLifecycle.cpp
+        order/OrderFileIdentity.h
+        order/OrderFileIdentity.cpp
+        baseline/worker/BaselineFileIndexer.h
+        baseline/worker/BaselineFileIndexer.cpp
+        preferences/PortableWindowPreferences.h
+        preferences/PortableWindowPreferences.cpp
         order/OrderFileGateway.h
         order/OrderFileGateway.cpp
         inspect/OrderInspector.h

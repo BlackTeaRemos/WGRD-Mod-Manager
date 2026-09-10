@@ -1,7 +1,80 @@
-﻿find_package(imgui CONFIG REQUIRED)
-
+find_package(imgui CONFIG REQUIRED)
+find_package(ZLIB REQUIRED)
+include("${PROJECT_SOURCE_DIR}/cmake/WgrdEmbeddedFont.cmake")
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/generated/fonts")
+wgrd_embed_font(INTER_REGULAR "${CMAKE_CURRENT_SOURCE_DIR}/fonts/assets/Inter-Regular.ttf.gz" "${CMAKE_BINARY_DIR}/generated/fonts/InterRegular.h")
+wgrd_embed_font(INTER_SEMIBOLD "${CMAKE_CURRENT_SOURCE_DIR}/fonts/assets/Inter-SemiBold.ttf.gz" "${CMAKE_BINARY_DIR}/generated/fonts/InterSemiBold.h")
+wgrd_embed_font(INTER_BOLD "${CMAKE_CURRENT_SOURCE_DIR}/fonts/assets/Inter-Bold.ttf.gz" "${CMAKE_BINARY_DIR}/generated/fonts/InterBold.h")
 wgrd_add_module(gui
     SOURCES
+        state/KeyboardNavigation.h
+        state/KeyboardNavigation.cpp
+        screens/profiles/ProfileEditor.cpp
+        shell/support/SupportPanel.h
+        shell/support/SupportPanel.cpp
+        screens/transfers/BaselineProgressPanel.h
+        screens/transfers/BaselineProgressPanel.cpp
+        screens/transfers/DownloadProgressPanel.h
+        screens/transfers/DownloadProgressPanel.cpp
+        settings/GameLocationControls.h
+        settings/GameLocationControls.cpp
+        modals/ModalSurface.h
+        modals/ModalSurface.cpp
+        modals/ModalSection.h
+        modals/ModalSection.cpp
+        modals/details/ModDetailsPanel.h
+        modals/details/ModDetailsPanel.cpp
+        modals/settings/TransferSettings.h
+        modals/settings/TransferSettings.cpp
+        modals/settings/TrustSettings.h
+        modals/settings/TrustSettings.cpp
+        modals/settings/UpdateSettings.h
+        modals/settings/UpdateSettings.cpp
+        modals/settings/SettingsPanel.h
+        modals/settings/SettingsPanel.cpp
+        platform/paths/Win32PathActions.h
+        platform/paths/Win32PathActions.cpp
+        design/UiStyle.h
+        design/UiStyle.cpp
+        screens/order/OrderDragController.h
+        screens/order/OrderDragController.cpp
+        screens/order/OrderEntryList.h
+        screens/order/OrderEntryList.cpp
+        screens/order/OrderEditToolbar.h
+        screens/order/OrderEditToolbar.cpp
+        design/text/ClippedText.h
+        design/text/ClippedText.cpp
+        feedback/InstallStartText.h
+        screens/catalog/CatalogSort.h
+        screens/catalog/CatalogQuery.h
+        screens/catalog/CatalogQuery.cpp
+        screens/catalog/CatalogRowAction.h
+        screens/catalog/CatalogRowView.h
+        screens/catalog/CatalogRowView.cpp
+        design/layout/CanvasExtent.h
+        design/layout/CanvasExtent.cpp
+        screens/layout/ScreenViewport.h
+        screens/layout/ScreenViewport.cpp
+        fonts/FontRole.h
+        fonts/CompressedFont.h
+        fonts/CompressedFont.cpp
+        design/interaction/InteractiveRegion.h
+        design/interaction/InteractiveRegion.cpp
+        design/inputs/TextEntry.h
+        design/inputs/TextEntry.cpp
+        platform/window/dpi/DpiViewport.h
+        platform/window/dpi/DpiViewport.cpp
+        platform/window/frame/NativeWindowFrame.h
+        platform/window/frame/NativeWindowFrame.cpp
+        platform/window/placement/NativeWindowPlacement.h
+        platform/window/placement/NativeWindowPlacement.cpp
+        platform/window/taskbar/NativeTaskbarProgress.h
+        platform/window/taskbar/NativeTaskbarProgress.cpp
+        platform/window/tray/NativeTrayIcon.h
+        platform/window/tray/NativeTrayIcon.cpp
+        shell/close/WindowCloseChoice.h
+        shell/close/ExitDialog.h
+        shell/close/ExitDialog.cpp
         Application.h
         Application.cpp
         design/Tokens.h
@@ -25,25 +98,25 @@ wgrd_add_module(gui
         screens/ScreenArea.h
         screens/ScreenToolbar.h
         screens/ScreenToolbar.cpp
-        screens/CatalogScreen.h
-        screens/CatalogScreen.cpp
+        screens/catalog/CatalogScreen.h
+        screens/catalog/CatalogScreen.cpp
         design/FontLibrary.h
         design/FontLibrary.cpp
         design/PassphraseMeter.h
         design/PassphraseMeter.cpp
         text/PassphraseText.h
-        screens/OrderScreen.h
-        screens/OrderScreen.cpp
-        screens/TransfersScreen.h
-        screens/TransfersScreen.cpp
-        screens/ProfilesScreen.h
-        screens/ProfilesScreen.cpp
-        screens/PublishKeyStep.h
-        screens/PublishKeyStep.cpp
-        screens/PublishSignStep.h
-        screens/PublishSignStep.cpp
-        screens/PublishScreen.h
-        screens/PublishScreen.cpp
+        screens/order/OrderScreen.h
+        screens/order/OrderScreen.cpp
+        screens/transfers/TransfersScreen.h
+        screens/transfers/TransfersScreen.cpp
+        screens/profiles/ProfilesScreen.h
+        screens/profiles/ProfilesScreen.cpp
+        screens/publish/PublishKeyStep.h
+        screens/publish/PublishKeyStep.cpp
+        screens/publish/PublishSignStep.h
+        screens/publish/PublishSignStep.cpp
+        screens/publish/PublishScreen.h
+        screens/publish/PublishScreen.cpp
         screens/Screens.h
         screens/Screens.cpp
         shell/NavigationRail.h
@@ -67,4 +140,10 @@ wgrd_add_module(gui
         domain
 )
 
-target_link_libraries(wgrd_gui PUBLIC imgui::imgui d3d11 dxgi dwmapi)
+if(WGRD_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
+
+target_include_directories(wgrd_gui PRIVATE "${CMAKE_BINARY_DIR}/generated")
+
+target_link_libraries(wgrd_gui PUBLIC imgui::imgui ZLIB::ZLIB d3d11 dxgi dwmapi ole32 shell32 uuid)

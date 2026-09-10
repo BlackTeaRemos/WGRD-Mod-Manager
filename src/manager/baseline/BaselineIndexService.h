@@ -6,7 +6,7 @@
 #include "manager/baseline/BaselineChunkCatalogue.h"
 #include "manager/baseline/BaselineFileEntry.h"
 #include "manager/baseline/records/BaselineRecordStore.h"
-#include "manager/manifest/FileChunkLister.h"
+#include "manager/baseline/worker/BaselineFileIndexer.h"
 
 #include <chrono>
 #include <condition_variable>
@@ -72,7 +72,7 @@ private:
 
 	std::filesystem::path _packRoot;
 	BaselineRecordStore _store;
-	FileChunkLister _lister;
+	BaselineFileIndexer _indexer;
 	BaselineChunkCatalogue _catalogue;
 
 	mutable std::mutex _guard;

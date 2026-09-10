@@ -1,5 +1,7 @@
 #pragma once
 
+#include "gui/fonts/FontRole.h"
+
 #include <imgui.h>
 
 #include <string_view>
@@ -23,13 +25,11 @@ enum class ButtonVariant {
 	, Failure
 };
 
-float ScaledText(float pixels);
-
 void Text(std::string_view value, ImU32 color, float size);
 
-void TextAt(ImVec2 position, std::string_view value, ImU32 color, float size);
+void TextAt(ImVec2 position, std::string_view value, ImU32 color, float size, FontRole role = FontRole::Data);
 
-ImVec2 MeasureText(std::string_view value, float size);
+ImVec2 MeasureText(std::string_view value, float size, FontRole role = FontRole::Data);
 
 void FillRect(ImVec2 topLeft, ImVec2 bottomRight, ImU32 color);
 
@@ -68,7 +68,7 @@ ImVec2 PillSize(std::string_view label);
 
 bool Checkbox(ImVec2 topLeft, bool checked);
 
-bool RowHit(ImVec2 topLeft, ImVec2 bottomRight, bool& hovered);
+bool RowHit(ImVec2 topLeft, ImVec2 bottomRight, bool& hovered, bool allowOverlap = false);
 
 enum class RuleState {
 	Idle
@@ -78,9 +78,6 @@ enum class RuleState {
 };
 
 ImU32 RuleTone(RuleState state);
-
-constexpr float WRAPPED_LINE_STEP = 13.0f;
-constexpr std::size_t WRAPPED_LINE_LIMIT = 16;
 
 float WrappedTextAt(ImVec2 topLeft, float width, std::string_view value, ImU32 color, float size);
 
@@ -96,10 +93,6 @@ bool RowSecondaryHit(ImVec2 topLeft, ImVec2 bottomRight);
 void Shadow(ImVec2 topLeft, ImVec2 bottomRight);
 
 bool PointerInside(ImVec2 topLeft, ImVec2 bottomRight);
-
-void ReserveRegion(ImVec2 topLeft, ImVec2 bottomRight);
-
-void ClearReservedRegion();
 
 void Meter(ImVec2 topLeft, float width, float height, float fraction, ImU32 fill);
 

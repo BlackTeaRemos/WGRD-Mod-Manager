@@ -1,5 +1,14 @@
-﻿wgrd_add_module(domain
+wgrd_add_module(domain
     SOURCES
+        interfaces/order/OrderIdentityError.h
+        interfaces/order/IOrderIdentity.h
+        interfaces/platform/PathActionError.h
+        interfaces/platform/IPathActions.h
+        interfaces/platform/GameLocationError.h
+        interfaces/platform/IGameLocation.h
+        interfaces/order/IOrderHistory.h
+        interfaces/preferences/IWindowPreferences.h
+        types/preferences/WindowPreferences.h
         types/content/ChunkDigest.h
         types/content/ChunkFileNaming.h
         types/content/ChunkSetTorrentDescription.h

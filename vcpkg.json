@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "wgrd-mod-manager",
   "version": "1.1.1",
@@ -20,6 +20,7 @@
       ]
     },
     "freetype",
+    "zlib",
     "sqlite3",
     "libsodium",
     "blake3",

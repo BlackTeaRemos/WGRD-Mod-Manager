@@ -28,6 +28,7 @@ struct InstallProgress {
 	std::uint32_t peers = 0;
 	std::uint64_t pendingWrites = 0;
 	bool settling = false;
+	bool verification = false;
 	std::string message;
 
 	[[nodiscard]] bool Busy() const {

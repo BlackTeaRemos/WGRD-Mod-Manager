@@ -1,5 +1,9 @@
-﻿wgrd_add_tests(manager
+wgrd_add_tests(manager
     SOURCES
+        ux/OrderHistoryFixture.cpp
+        ux/OrderHistoryTests.cpp
+        ux/OrderFileIdentityTests.cpp
+        ux/WindowPreferencesTests.cpp
         OrderFileGatewayTests.cpp
         OrderInspectorTests.cpp
         ManifestEnvelopeTests.cpp

@@ -11,6 +11,10 @@ wgrd_add_module(app
     EXECUTABLE
     SOURCES
         Main.cpp
+        session/GameLocationRequest.h
+        session/GameLocationRequest.cpp
+        session/ManagerSession.h
+        session/ManagerSession.cpp
     DEPS
         domain
         manager

@@ -1,4 +1,4 @@
-﻿#include "gui/shell/NavigationRail.h"
+#include "gui/shell/NavigationRail.h"
 
 #include "gui/design/Primitives.h"
 #include "gui/design/Tokens.h"
@@ -199,7 +199,7 @@ void NavigationRail::Draw(
 			10.0f
 		);
 
-		design::TextAt(ImVec2(rowTopLeft.x + 24.0f, cursorY + 5.0f), entry.label, labelColor, 12.0f);
+		design::TextAt(ImVec2(rowTopLeft.x + 24.0f, cursorY + 5.0f), entry.label, labelColor, 12.0f, FontRole::Name);
 
 		const std::string badge = BadgeFor_(entry.screen, services);
 		const float badgeWidth = design::MeasureText(badge, 10.0f).x;

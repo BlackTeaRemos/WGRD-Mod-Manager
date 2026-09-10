@@ -1,6 +1,9 @@
-﻿#include "gui/design/Primitives.h"
+#include "gui/design/Primitives.h"
 
 #include "gui/design/FontLibrary.h"
+#include "gui/design/layout/CanvasExtent.h"
+#include "gui/design/inputs/TextEntry.h"
+#include "gui/design/interaction/InteractiveRegion.h"
 #include "gui/design/Tokens.h"
 
 #include <algorithm>
@@ -9,16 +12,6 @@
 namespace wgrd::gui::design {
 namespace {
 	constexpr float CHECKBOX_SIZE = 13.0f;
-
-	bool reservedActive = false;
-	ImVec2 reservedTopLeft{};
-	ImVec2 reservedBottomRight{};
-
-	bool ReservedRegionCovers(const ImVec2 pointer) {
-		return reservedActive &&
-		       pointer.x >= reservedTopLeft.x && pointer.x < reservedBottomRight.x &&
-		       pointer.y >= reservedTopLeft.y && pointer.y < reservedBottomRight.y;
-	}
 
 	ImDrawList* Canvas() {
 		return ImGui::GetWindowDrawList();
@@ -81,18 +74,21 @@ namespace {
 	}
 }
 
-float ScaledText(const float pixels) {
-	return pixels;
+ImVec2 MeasureText(const std::string_view value, const float size, const FontRole role) {
+	const std::string text(value);
+	ImGui::PushFont(FontLibrary::For(role), size);
+	const ImVec2 extent = ImGui::GetFont()->CalcTextSizeA(size, FLT_MAX, 0.0f, text.c_str());
+	ImGui::PopFont();
+	return extent;
 }
 
-ImVec2 MeasureText(const std::string_view value, const float size) {
+void TextAt(const ImVec2 position, const std::string_view value, const ImU32 color, const float size, const FontRole role) {
 	const std::string text(value);
-	return FontLibrary::For(size)->CalcTextSizeA(size, FLT_MAX, 0.0f, text.c_str());
-}
-
-void TextAt(const ImVec2 position, const std::string_view value, const ImU32 color, const float size) {
-	const std::string text(value);
-	Canvas()->AddText(FontLibrary::For(size), size, position, color, text.c_str());
+	ImGui::PushFont(FontLibrary::For(role), size);
+	Canvas()->AddText(ImGui::GetFont(), size, position, color, text.c_str());
+	ImGui::PopFont();
+	const ImVec2 extent = MeasureText(value, size, role);
+	CanvasExtent::Include(ImVec2(position.x + extent.x, position.y + extent.y));
 }
 
 void Text(const std::string_view value, const ImU32 color, const float size) {
@@ -101,6 +97,7 @@ void Text(const std::string_view value, const ImU32 color, const float size) {
 
 void FillRect(const ImVec2 topLeft, const ImVec2 bottomRight, const ImU32 color) {
 	Canvas()->AddRectFilled(topLeft, bottomRight, color);
+	CanvasExtent::Include(bottomRight);
 }
 
 void StrokeRect(const ImVec2 topLeft, const ImVec2 bottomRight, const ImU32 color) {
@@ -139,12 +136,13 @@ void HeadingBar(
 	FillRect(topLeft, bottomRight, HeadingFill(level, tone));
 
 	const float fontSize = HeadingFontSize(level);
-	const ImVec2 extent = MeasureText(label, fontSize);
+	const ImVec2 extent = MeasureText(label, fontSize, FontRole::Heading);
 	TextAt(
 		ImVec2(topLeft.x + 6.0f, topLeft.y + (height - extent.y) * 0.5f),
 		label,
 		tokens::PRIMARY,
-		fontSize
+		fontSize,
+		FontRole::Heading
 	);
 }
 
@@ -163,54 +161,22 @@ ImU32 RuleTone(const RuleState state) {
 	return tokens::TEXT_DISABLED;
 }
 
-float WrappedTextAt(
-	const ImVec2 topLeft,
-	const float width,
-	const std::string_view value,
-	const ImU32 color,
-	const float size
-) {
-	float cursorY = topLeft.y;
-	std::size_t drawn = 0;
-	std::string line;
-	std::size_t cursor = 0;
-
-	while (cursor <= value.size() && drawn < WRAPPED_LINE_LIMIT) {
-		const std::size_t space = value.find(' ', cursor);
-		const std::size_t end = space == std::string_view::npos ? value.size() : space;
-
-		const std::string_view word = value.substr(cursor, end - cursor);
-
-		std::string candidate = line.empty()
-		                        ? std::string(word)
-		                        : line + " " + std::string(word);
-
-		if (!line.empty() && MeasureText(candidate, size).x > width) {
-			TextAt(ImVec2(topLeft.x, cursorY), line, color, size);
-			cursorY += WRAPPED_LINE_STEP;
-			++drawn;
-			line = std::string(word);
-		} else {
-			line = std::move(candidate);
-		}
-
-		if (space == std::string_view::npos) {
-			break;
-		}
-
-		cursor = space + 1;
-	}
-
-	if (!line.empty() && drawn < WRAPPED_LINE_LIMIT) {
-		TextAt(ImVec2(topLeft.x, cursorY), line, color, size);
-		cursorY += WRAPPED_LINE_STEP;
-	}
-
-	return cursorY;
+float WrappedTextAt(const ImVec2 topLeft, const float width, const std::string_view value,
+	const ImU32 color, const float size) {
+	ImGui::SetCursorScreenPos(topLeft);
+	ImGui::PushFont(FontLibrary::For(FontRole::Body), size);
+	ImGui::PushStyleColor(ImGuiCol_Text, color);
+	ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + std::max(width, 1.0f));
+	ImGui::TextUnformatted(value.data(), value.data() + value.size());
+	const float bottom = ImGui::GetItemRectMax().y;
+	ImGui::PopTextWrapPos();
+	ImGui::PopStyleColor();
+	ImGui::PopFont();
+	return bottom;
 }
 
 ImVec2 ButtonSize(const std::string_view label, const float paddingX, const float height) {
-	const ImVec2 extent = MeasureText(label, 10.0f);
+	const ImVec2 extent = MeasureText(label, 10.0f, FontRole::Label);
 	return ImVec2(extent.x + paddingX * 2.0f, height);
 }
 
@@ -229,12 +195,12 @@ bool Button(
 	if (!enabled) {
 		StrokeRect(topLeft, bottomRight, tokens::BORDER_SUBTLE);
 
-		const ImVec2 mutedExtent = MeasureText(label, 10.0f);
+		const ImVec2 mutedExtent = MeasureText(label, 10.0f, FontRole::Label);
 		TextAt(
 			ImVec2(topLeft.x + paddingX, topLeft.y + (size.y - mutedExtent.y) * 0.5f),
 			label,
 			tokens::TEXT_DISABLED,
-			10.0f
+			10.0f, FontRole::Label
 		);
 
 		return false;
@@ -255,19 +221,19 @@ bool Button(
 
 	StrokeRect(topLeft, bottomRight, outline);
 
-	const ImVec2 extent = MeasureText(label, 10.0f);
+	const ImVec2 extent = MeasureText(label, 10.0f, FontRole::Label);
 	TextAt(
 		ImVec2(topLeft.x + paddingX, topLeft.y + (size.y - extent.y) * 0.5f),
 		label,
 		textColor,
-		10.0f
+		10.0f, FontRole::Label
 	);
 
 	return clicked;
 }
 
 ImVec2 PillSize(const std::string_view label) {
-	const ImVec2 extent = MeasureText(label, 9.0f);
+	const ImVec2 extent = MeasureText(label, 9.0f, FontRole::Label);
 	return ImVec2(extent.x + 10.0f, extent.y + 4.0f);
 }
 
@@ -276,7 +242,7 @@ void Pill(const ImVec2 topLeft, const std::string_view label, const ImU32 color)
 	const ImVec2 bottomRight(topLeft.x + size.x, topLeft.y + size.y);
 
 	StrokeRect(topLeft, bottomRight, color);
-	TextAt(ImVec2(topLeft.x + 5.0f, topLeft.y + 2.0f), label, color, 9.0f);
+	TextAt(ImVec2(topLeft.x + 5.0f, topLeft.y + 2.0f), label, color, 9.0f, FontRole::Label);
 }
 
 bool Checkbox(const ImVec2 topLeft, const bool checked) {
@@ -303,20 +269,8 @@ bool Checkbox(const ImVec2 topLeft, const bool checked) {
 	return clicked;
 }
 
-bool RowHit(const ImVec2 topLeft, const ImVec2 bottomRight, bool& hovered) {
-	const ImVec2 pointer = ImGui::GetIO().MousePos;
-
-	const bool inside =
-			pointer.x >= topLeft.x && pointer.x < bottomRight.x &&
-			pointer.y >= topLeft.y && pointer.y < bottomRight.y;
-
-	if (inside && ReservedRegionCovers(pointer)) {
-		hovered = false;
-		return false;
-	}
-
-	hovered = inside;
-	return hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+bool RowHit(const ImVec2 topLeft, const ImVec2 bottomRight, bool& hovered, const bool allowOverlap) {
+	return InteractiveRegion::Activate(topLeft, bottomRight, hovered, allowOverlap);
 }
 
 void TransferBar(const ImVec2 topLeft, const float width, const float height, const TransferSegments& segments) {
@@ -354,17 +308,7 @@ void TransferBar(const ImVec2 topLeft, const float width, const float height, co
 }
 
 bool RowSecondaryHit(const ImVec2 topLeft, const ImVec2 bottomRight) {
-	const ImVec2 pointer = ImGui::GetIO().MousePos;
-
-	const bool inside =
-			pointer.x >= topLeft.x && pointer.x < bottomRight.x &&
-			pointer.y >= topLeft.y && pointer.y < bottomRight.y;
-
-	if (!inside || ReservedRegionCovers(pointer)) {
-		return false;
-	}
-
-	return ImGui::IsMouseClicked(ImGuiMouseButton_Right);
+	return InteractiveRegion::Secondary(topLeft, bottomRight);
 }
 
 void Shadow(const ImVec2 topLeft, const ImVec2 bottomRight) {
@@ -382,16 +326,6 @@ bool PointerInside(const ImVec2 topLeft, const ImVec2 bottomRight) {
 	       pointer.y >= topLeft.y && pointer.y < bottomRight.y;
 }
 
-void ReserveRegion(const ImVec2 topLeft, const ImVec2 bottomRight) {
-	reservedActive = true;
-	reservedTopLeft = topLeft;
-	reservedBottomRight = bottomRight;
-}
-
-void ClearReservedRegion() {
-	reservedActive = false;
-}
-
 void Meter(const ImVec2 topLeft, const float width, const float height, const float fraction, const ImU32 fill) {
 	const ImVec2 bottomRight(topLeft.x + width, topLeft.y + height);
 
@@ -403,43 +337,11 @@ void Meter(const ImVec2 topLeft, const float width, const float height, const fl
 }
 
 
-namespace {
-	bool DrawInputField(
-		const ImVec2 topLeft,
-		const float width,
-		const std::string_view identity,
-		char* buffer,
-		const std::size_t capacity,
-		const ImGuiInputTextFlags flags
-	) {
-		const ImVec2 bottomRight(topLeft.x + width, topLeft.y + FIELD_HEIGHT);
-
-		FillRect(topLeft, bottomRight, tokens::SURFACE_SUNKEN);
-		StrokeRect(topLeft, bottomRight, tokens::BORDER);
-
-		ImGui::SetCursorScreenPos(ImVec2(topLeft.x + 6.0f, topLeft.y + 4.0f));
-		ImGui::PushItemWidth(width - 12.0f);
-
-		ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
-		ImGui::PushStyleColor(ImGuiCol_Text, tokens::SECONDARY);
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 0.0f));
-
-		const std::string label = "##" + std::string(identity);
-		const bool changed = ImGui::InputText(label.c_str(), buffer, capacity, flags);
-
-		ImGui::PopStyleVar();
-		ImGui::PopStyleColor(2);
-		ImGui::PopItemWidth();
-
-		return changed;
-	}
-}
-
 bool TextField(const ImVec2 topLeft, const float width, const std::string_view identity, char* buffer, const std::size_t capacity) {
-	return DrawInputField(topLeft, width, identity, buffer, capacity, ImGuiInputTextFlags_None);
+	return TextEntry::Draw(topLeft, width, identity, buffer, capacity, ImGuiInputTextFlags_None);
 }
 
 bool PasswordField(const ImVec2 topLeft, const float width, const std::string_view identity, char* buffer, const std::size_t capacity) {
-	return DrawInputField(topLeft, width, identity, buffer, capacity, ImGuiInputTextFlags_Password);
+	return TextEntry::Draw(topLeft, width, identity, buffer, capacity, ImGuiInputTextFlags_Password);
 }
 }

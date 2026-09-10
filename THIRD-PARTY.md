@@ -8,6 +8,9 @@ Everything below is linked statically into the shipped executable.
 | libtorrent-rasterbar | BSD-3-Clause |
 | Dear ImGui | MIT |
 | FreeType | FTL |
+| zlib | Zlib |
+| Inter | [OFL-1.1](src/gui/fonts/assets/Inter-LICENSE.txt) |
+| Fira Code | [OFL-1.1](src/gui/fonts/assets/FiraCode-LICENSE.txt) |
 | SQLite | public domain |
 | libsodium | ISC |
 | BLAKE3 | CC0-1.0 or Apache-2.0 |

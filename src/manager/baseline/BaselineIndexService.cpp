@@ -3,7 +3,6 @@
 #include "domain/rules/BaselinePackLayout.h"
 #include "manager/baseline/BackgroundThreadMode.h"
 #include "manager/baseline/BaselineFileScanner.h"
-#include "manager/baseline/records/FileStampReader.h"
 
 #include <algorithm>
 #include <map>
@@ -18,7 +17,7 @@ BaselineIndexService::BaselineIndexService(
 )
 	: _packRoot(domain::BaselinePackLayout::PackRoot(gameRoot))
 	, _store(std::move(recordFolder), hasher)
-	, _lister(chunker, hasher)
+	, _indexer(chunker, hasher)
 	, _catalogue()
 	, _guard()
 	, _wake()
@@ -219,6 +218,8 @@ std::optional<BaselineIndexService::Claimed> BaselineIndexService::Claim_() {
 
 	Claimed claimed{_queue.front(), _waiters > 0};
 	_queue.pop_front();
+	_status.activeFile = claimed.entry.relativePath;
+	_status.activeBytes = 0;
 
 	return claimed;
 }
@@ -227,6 +228,8 @@ void BaselineIndexService::Complete_(const BaselineFileEntry& entry, const bool 
 	{
 		const std::scoped_lock lock(_guard);
 		_pending.erase(NormalisePath_(entry.relativePath));
+		_status.activeFile.clear();
+		_status.activeBytes = 0;
 		if (indexed) {
 			++_status.indexedFiles;
 			_status.indexedBytes += entry.stamp.size;
@@ -259,22 +262,16 @@ void BaselineIndexService::Run_() {
 			background = true;
 		}
 
-		const std::optional<domain::FileStamp> before = FileStampReader::Read(claimed->entry.file);
-		const std::optional<domain::ManifestFile> described =
-				_lister.Describe(claimed->entry.file, claimed->entry.relativePath);
-		const std::optional<domain::FileStamp> after = FileStampReader::Read(claimed->entry.file);
-
-		const bool indexed = described.has_value() && before.has_value() && after == before && described->size == before->size;
-		if (indexed) {
-			const BaselineFileRecord record{claimed->entry.relativePath, *before, described->chunks};
-
-			_catalogue.Adopt(_packRoot, record);
-
-			const bool saved = _store.Save(record);
+		const auto record = _indexer.Describe(claimed->entry, [this](const std::uint64_t bytes) {
+			const std::scoped_lock lock(_guard);
+			_status.activeBytes = bytes;
+		});
+		if (record.has_value()) {
+			_catalogue.Adopt(_packRoot, *record);
+			const bool saved = _store.Save(*record);
 			(void)saved;
 		}
-
-		Complete_(claimed->entry, indexed);
+		Complete_(claimed->entry, record.has_value());
 	}
 
 	{

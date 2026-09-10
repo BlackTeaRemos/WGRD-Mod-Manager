@@ -39,6 +39,9 @@ public:
 
 	[[nodiscard]] bool ExitRequested() const noexcept;
 	void RequestExit() noexcept;
+	void ClearExitRequest() noexcept;
+	[[nodiscard]] bool BackgroundOnClose() const noexcept;
+	void SetBackgroundOnClose(bool enabled) noexcept;
 
 private:
 	Screen _screen = Screen::Catalog;
@@ -49,5 +52,6 @@ private:
 	std::size_t _catalogFilter = 0;
 	std::string _publishFolder;
 	bool _exitRequested = false;
+	bool _backgroundOnClose = false;
 };
 }

@@ -1,11 +1,13 @@
 #include "downloader/announce/AnnounceWireCodec.h"
 #include "downloader/transfer/TorrentSession.h"
+#include "downloader/transfer/SessionSettings.h"
 
 #include "domain/interfaces/trust/IAnnounceCatalogue.h"
 #include "domain/interfaces/trust/IAnnounceReceiver.h"
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <mutex>
@@ -24,7 +26,7 @@ using wgrd::downloader::AnnounceWireCodec;
 using wgrd::downloader::TorrentSession;
 
 namespace {
-constexpr std::string_view LOOPBACK = "127.0.0.1:0";
+constexpr std::string_view LOOPBACK = wgrd::downloader::SessionSettings::LOOPBACK_INTERFACES;
 constexpr std::chrono::seconds BUDGET{45};
 constexpr std::chrono::milliseconds POLL_INTERVAL{50};
 
@@ -161,9 +163,9 @@ public:
 		return _accepted.size();
 	}
 
-	[[nodiscard]] std::vector<std::uint8_t> First() const {
+	[[nodiscard]] bool Contains(const std::vector<std::uint8_t>& record) const {
 		const std::scoped_lock lock(_guard);
-		return _accepted.empty() ? std::vector<std::uint8_t>() : _accepted.front();
+		return std::ranges::find(_accepted, record) != _accepted.end();
 	}
 
 private:
@@ -201,7 +203,7 @@ TEST_CASE("two live sessions gossip over loopback", "[.live]") {
 		seeder.Poll();
 		leecher.Poll();
 
-		if (leecherReceiver.Count() > 0) {
+		if (leecherReceiver.Contains(record)) {
 			break;
 		}
 
@@ -344,7 +346,7 @@ TEST_CASE("gossip finds a neighbour on loopback without dialling") {
 		seeder.Poll();
 		leecher.Poll();
 
-		if (leecherReceiver.Count() > 0) {
+		if (leecherReceiver.Contains(record)) {
 			break;
 		}
 
@@ -359,7 +361,7 @@ TEST_CASE("gossip finds a neighbour on loopback without dialling") {
 
 	REQUIRE(leecher.Gossip().peers > 0);
 	REQUIRE(leecherReceiver.Count() >= 1);
-	REQUIRE(leecherReceiver.First() == record);
+	REQUIRE(leecherReceiver.Contains(record));
 }
 
 TEST_CASE("gossip carries a record between two sessions") {
@@ -401,7 +403,7 @@ TEST_CASE("gossip carries a record between two sessions") {
 		seeder.Poll();
 		leecher.Poll();
 
-		if (leecherReceiver.Count() > 0) {
+		if (leecherReceiver.Contains(record)) {
 			break;
 		}
 
@@ -411,5 +413,5 @@ TEST_CASE("gossip carries a record between two sessions") {
 	REQUIRE(dialled);
 	REQUIRE(leecher.Gossip().peers > 0);
 	REQUIRE(leecherReceiver.Count() >= 1);
-	REQUIRE(leecherReceiver.First() == record);
+	REQUIRE(leecherReceiver.Contains(record));
 }

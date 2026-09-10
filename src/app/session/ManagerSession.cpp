@@ -1,0 +1,255 @@
+#include "app/session/ManagerSession.h"
+#include "gui/platform/paths/Win32PathActions.h"
+
+#include <utility>
+#include "domain/BuildInfo.h"
+#include "downloader/chunk/FastCdcChunker.h"
+#include "downloader/torrent/build/ChunkSetTorrentBuilder.h"
+#include "downloader/transfer/TorrentSession.h"
+#include "gui/Application.h"
+#include "gui/platform/Win32FilePicker.h"
+#include "gui/platform/Win32UriLauncher.h"
+#include "manager/announce/AnnounceReceiver.h"
+#include "manager/baseline/BaselineIndexService.h"
+#include "manager/environment/GameLocator.h"
+#include "manager/preferences/PortableWindowPreferences.h"
+#include "manager/order/OrderFileIdentity.h"
+#include "manager/hash/Blake3Hasher.h"
+#include "manager/manifest/ManifestBuilder.h"
+#include "manager/manifest/ManifestCodec.h"
+#include "manager/payload/PayloadPathPolicy.h"
+#include "manager/service/CatalogService.h"
+#include "manager/service/InstallService.h"
+#include "manager/service/MirrorService.h"
+#include "manager/service/ModRemovalService.h"
+#include "manager/service/OrderService.h"
+#include "manager/profile/SteamUserdataLocator.h"
+#include "manager/service/ProfileService.h"
+#include "manager/service/PublishService.h"
+#include "manager/service/PatcherService.h"
+#include "manager/service/RegistryUpdateService.h"
+#include "manager/service/UpdateService.h"
+#include "manager/trust/DirectoryKeyRegistry.h"
+#include "manager/trust/ManifestAuthenticator.h"
+#include "manager/update/ExecutableSwapper.h"
+
+#include <filesystem>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace wgrd::app {
+namespace {
+constexpr std::string_view DATA_FOLDER = ".wgrdmm";
+constexpr std::string_view REGISTRY_FOLDER = "registry";
+constexpr std::string_view CONTROL_FOLDER = "control";
+constexpr std::string_view TORRENT_FOLDER = "torrents";
+constexpr std::string_view ANNOUNCE_FOLDER = "announces";
+constexpr std::string_view PROFILE_FOLDER = "profiles";
+constexpr std::string_view INSTALLED_FOLDER = "installed";
+constexpr std::string_view BASELINE_FOLDER = "baseline";
+
+}
+
+ManagerSession::ManagerSession(std::optional<domain::GameInstallation> installation, domain::IGameLocation& location)
+	: _installation(std::move(installation))
+	, _location(&location) {}
+
+int ManagerSession::Run() {
+	const auto& installation = _installation;
+	const wgrd::downloader::FastCdcChunker chunker(wgrd::domain::ChunkSizes::Default());
+	const wgrd::manager::Blake3Hasher hasher;
+	const wgrd::manager::PayloadPathPolicy pathPolicy;
+	const wgrd::manager::ManifestCodec codec(pathPolicy);
+	const wgrd::downloader::ChunkSetTorrentBuilder torrentBuilder;
+	const wgrd::manager::ManifestBuilder manifestBuilder(chunker, hasher, pathPolicy);
+
+	std::unique_ptr<wgrd::manager::OrderService> orderService;
+	std::unique_ptr<wgrd::manager::OrderFileIdentity> orderIdentity;
+	std::unique_ptr<wgrd::manager::PortableWindowPreferences> windowPreferences;
+	std::unique_ptr<wgrd::manager::ProfileService> profileService;
+	std::unique_ptr<wgrd::manager::DirectoryKeyRegistry> registry;
+	std::unique_ptr<wgrd::manager::AnnounceStore> announceStore;
+	std::unique_ptr<wgrd::manager::AnnounceReceiver> receiver;
+	std::unique_ptr<wgrd::manager::ManifestAuthenticator> authenticator;
+	std::unique_ptr<wgrd::manager::PublishService> publishService;
+	std::unique_ptr<wgrd::manager::CatalogService> catalogService;
+	std::unique_ptr<wgrd::manager::RegistryUpdateService> registryUpdater;
+	std::unique_ptr<wgrd::manager::PatcherService> patcherService;
+	std::unique_ptr<wgrd::manager::InstalledReleaseStore> installedStore;
+	std::unique_ptr<wgrd::manager::BaselineIndexService> baselineIndex;
+	std::unique_ptr<wgrd::manager::InstallService> installService;
+	std::unique_ptr<wgrd::manager::ModRemovalService> removalService;
+	std::unique_ptr<wgrd::manager::MirrorService> mirrorService;
+
+	const std::filesystem::path swarmSavePath = installation
+	                                            ? installation->modsDirectory
+	                                            : std::filesystem::current_path();
+
+	wgrd::downloader::TorrentSession swarm(swarmSavePath);
+
+	if (installation) {
+		const std::filesystem::path dataDirectory = installation->modsDirectory / DATA_FOLDER;
+
+		windowPreferences = std::make_unique<wgrd::manager::PortableWindowPreferences>(dataDirectory);
+
+		swarm.UseTorrentCache(dataDirectory / TORRENT_FOLDER);
+		swarm.RestoreSeedingPreference(dataDirectory);
+		swarm.RestoreTransferBudget(dataDirectory);
+
+		orderService = std::make_unique<wgrd::manager::OrderService>(*installation);
+		orderIdentity = std::make_unique<wgrd::manager::OrderFileIdentity>(installation->orderFile, hasher);
+
+		profileService = std::make_unique<wgrd::manager::ProfileService>(
+			dataDirectory / PROFILE_FOLDER,
+			*orderService,
+			wgrd::manager::SteamUserdataLocator::Accounts()
+		);
+
+		orderService->SetChangeHandler([&profileService]() {
+				if (profileService) {
+					profileService->SyncActive();
+				}
+			}
+		);
+
+		registry = std::make_unique<wgrd::manager::DirectoryKeyRegistry>(dataDirectory / REGISTRY_FOLDER);
+
+		announceStore = std::make_unique<wgrd::manager::AnnounceStore>(dataDirectory / ANNOUNCE_FOLDER);
+		receiver = std::make_unique<wgrd::manager::AnnounceReceiver>(*registry, announceStore.get());
+
+		const std::size_t restored = receiver->Restore();
+		(void)restored;
+
+		authenticator = std::make_unique<wgrd::manager::ManifestAuthenticator>(*registry);
+
+		installedStore = std::make_unique<wgrd::manager::InstalledReleaseStore>(
+			dataDirectory / INSTALLED_FOLDER
+		);
+
+		publishService = std::make_unique<wgrd::manager::PublishService>(
+			installation->modsDirectory,
+			dataDirectory,
+			chunker,
+			hasher,
+			pathPolicy,
+			torrentBuilder,
+			*receiver,
+			*receiver,
+			*registry,
+			&swarm,
+			installedStore.get()
+		);
+
+		catalogService = std::make_unique<wgrd::manager::CatalogService>(
+			installation->modsDirectory,
+			*receiver,
+			publishService->Store(),
+			*authenticator,
+			codec,
+			*registry,
+			*installedStore,
+			&swarm
+		);
+
+		baselineIndex = std::make_unique<wgrd::manager::BaselineIndexService>(
+			installation->root,
+			dataDirectory / BASELINE_FOLDER,
+			chunker,
+			hasher
+		);
+
+		installService = std::make_unique<wgrd::manager::InstallService>(
+			installation->modsDirectory,
+			dataDirectory,
+			*receiver,
+			publishService->Store(),
+			*authenticator,
+			codec,
+			manifestBuilder,
+			hasher,
+			swarm,
+			*installedStore,
+			&swarm,
+			baselineIndex.get()
+		);
+
+		baselineIndex->Start();
+
+		removalService = std::make_unique<wgrd::manager::ModRemovalService>(
+			installation->modsDirectory,
+			*installedStore,
+			*receiver,
+			orderService.get(),
+			&swarm,
+			installService.get()
+		);
+
+		mirrorService = std::make_unique<wgrd::manager::MirrorService>(
+			dataDirectory,
+			*catalogService,
+			*installService
+		);
+
+		registryUpdater = std::make_unique<wgrd::manager::RegistryUpdateService>(
+			std::string(wgrd::domain::build::INDEX_REPOSITORY),
+			dataDirectory / REGISTRY_FOLDER,
+			*registry
+		);
+
+		patcherService = std::make_unique<wgrd::manager::PatcherService>(
+			std::string(wgrd::domain::build::PATCHER_REPOSITORY),
+			installation->root,
+			dataDirectory
+		);
+
+		swarm.StartGossip(*receiver, *receiver, dataDirectory / CONTROL_FOLDER);
+	}
+
+	const auto currentVersion = wgrd::manager::VersionNumber::Parse(wgrd::domain::build::VERSION);
+	wgrd::manager::UpdateService updateService(
+		std::string(wgrd::domain::build::RELEASE_REPOSITORY),
+		currentVersion.value_or(wgrd::manager::VersionNumber())
+	);
+
+	wgrd::gui::Win32FilePicker filePicker(nullptr);
+	const wgrd::gui::Win32UriLauncher uriLauncher;
+
+	wgrd::gui::Win32PathActions pathActions(nullptr);
+	const wgrd::gui::ApplicationServices services{
+		.order = orderService.get(),
+		.catalog = catalogService.get(),
+		.publish = publishService.get(),
+		.swarm = &swarm,
+		.seeding = &swarm,
+		.install = installService.get(),
+		.updates = &updateService,
+		.registry = registryUpdater.get(),
+		.files = &filePicker,
+		.uris = &uriLauncher,
+		.gossip = &swarm,
+		.profiles = profileService.get(),
+		.removal = removalService.get(),
+		.patcher = patcherService.get(),
+		.mirror = mirrorService.get(),
+		.windowPreferences = windowPreferences.get(),
+		.orderHistory = orderService.get(),
+		.baseline = baselineIndex.get(),
+		.paths = &pathActions,
+		.gameLocation = _location,
+		.orderIdentity = orderIdentity.get()
+	};
+
+	wgrd::gui::Application application;
+
+	if (!application.Start(services)) {
+		return 1;
+	}
+
+	filePicker.SetOwner(application.WindowHandle());
+	pathActions.SetOwner(application.WindowHandle());
+
+	return application.Run();
+}
+}

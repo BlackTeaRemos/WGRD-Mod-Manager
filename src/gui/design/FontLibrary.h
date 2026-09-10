@@ -1,20 +1,17 @@
 #pragma once
 
-#include <imgui.h>
+#include "gui/fonts/FontRole.h"
 
+#include <imgui.h>
 #include <array>
-#include <cstddef>
 
 namespace wgrd::gui::design {
 class FontLibrary {
 public:
-	static constexpr std::array<float, 5> SIZES = {9.0f, 10.0f, 11.0f, 12.0f, 13.0f};
-
-	static void Build();
-
-	[[nodiscard]] static ImFont* For(float size);
+	[[nodiscard]] static bool Build();
+	[[nodiscard]] static ImFont* For(FontRole role);
 
 private:
-	[[nodiscard]] static std::size_t NearestIndex_(float size);
+	inline static std::array<ImFont*, 5> _fonts{};
 };
 }

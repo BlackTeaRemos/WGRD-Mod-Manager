@@ -1,0 +1,8 @@
+function(wgrd_embed_font symbol source destination)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${source}")
+    file(READ "${source}" fontBytes HEX)
+    string(REGEX REPLACE "(..)" "0x\\1," fontBytes "${fontBytes}")
+    string(REPEAT "." 80 fontLine)
+    string(REGEX REPLACE "(${fontLine})" "\\1\n" fontBytes "${fontBytes}")
+    file(WRITE "${destination}" "#pragma once\nnamespace wgrd::gui::fonts {\ninline constexpr unsigned char ${symbol}[] = {${fontBytes}};\n}\n")
+endfunction()

@@ -1,6 +1,8 @@
 #include "downloader/transfer/SwarmNode.h"
 
 #include "downloader/storage/InstalledFolderStorage.h"
+#include "downloader/transfer/SessionSettings.h"
+#include "downloader/transfer/PeerDialer.h"
 
 #include <libtorrent/add_torrent_params.hpp>
 #include <libtorrent/alert_types.hpp>
@@ -21,7 +23,6 @@
 
 namespace wgrd::downloader {
 namespace {
-	constexpr char LOOPBACK_INTERFACE[] = "127.0.0.1:0";
 	constexpr std::string_view LISTEN_BIND_FAILED = "listen bind failed";
 	constexpr std::chrono::milliseconds POLL_INTERVAL{25};
 	constexpr std::chrono::milliseconds LISTEN_TIMEOUT{8000};
@@ -48,7 +49,8 @@ namespace {
 		settings.set_bool(libtorrent::settings_pack::enable_upnp, false);
 		settings.set_bool(libtorrent::settings_pack::enable_natpmp, false);
 
-		settings.set_str(libtorrent::settings_pack::listen_interfaces, LOOPBACK_INTERFACE);
+		settings.set_str(libtorrent::settings_pack::listen_interfaces, std::string(SessionSettings::LOOPBACK_INTERFACES));
+		settings.set_int(libtorrent::settings_pack::max_retry_port_bind, PeerDialer::PORT_RETRY_LIMIT);
 		settings.set_int(libtorrent::settings_pack::alert_mask, LocalAlertMask());
 
 		settings.set_str(libtorrent::settings_pack::user_agent, "wgrd-mod-manager");

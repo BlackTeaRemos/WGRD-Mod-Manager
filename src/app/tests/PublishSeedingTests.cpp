@@ -1,6 +1,7 @@
 #include "downloader/chunk/FastCdcChunker.h"
 #include "downloader/torrent/build/ChunkSetTorrentBuilder.h"
 #include "downloader/transfer/TorrentSession.h"
+#include "downloader/transfer/SessionSettings.h"
 
 #include "manager/announce/AnnounceReceiver.h"
 #include "manager/announce/AnnounceStore.h"
@@ -29,7 +30,7 @@
 #include <thread>
 
 namespace {
-constexpr std::string_view LOOPBACK = "127.0.0.1:0";
+constexpr std::string_view LOOPBACK = wgrd::downloader::SessionSettings::LOOPBACK_INTERFACES;
 constexpr std::string_view PUBLISHER = "tester";
 constexpr std::string_view PASSPHRASE = "correcthorse";
 constexpr std::string_view MOD_FOLDER = "testmod";

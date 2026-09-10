@@ -14,7 +14,8 @@ FileChunkLister::FileChunkLister(
 
 std::optional<domain::ManifestFile> FileChunkLister::Describe(
 	const std::filesystem::path& file,
-	std::string relativePath
+	std::string relativePath,
+	const std::function<void(std::uint64_t)>& report
 ) const {
 	const auto mapped = MappedFile::Open(file);
 	if (!mapped.has_value()) {
@@ -34,6 +35,9 @@ std::optional<domain::ManifestFile> FileChunkLister::Describe(
 				_hasher->Hash(slice), static_cast<std::uint64_t>(span.offset), static_cast<std::uint32_t>(span.length)
 			}
 		);
+		if (report) {
+			report(span.offset + span.length);
+		}
 	}
 
 	return domain::ManifestFile{

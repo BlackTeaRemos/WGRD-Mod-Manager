@@ -29,18 +29,14 @@ constexpr std::string_view CANCEL = "cancel";
 
 constexpr std::string_view PILL_SEEDING = "SEEDING";
 constexpr std::string_view PILL_STARTING = "STARTING";
-constexpr std::string_view CONTROL_OK = "ok";
-constexpr std::string_view CONTROL_NONE = "none";
 
 constexpr std::string_view DHT_NODES_FORMAT = "{} dht nodes";
 constexpr std::string_view PORT_FORMAT = "port {}";
-constexpr std::string_view PEERS_CONTROL_FORMAT = "{} peers {} control";
 constexpr std::string_view OFFERS_FORMAT = "offers {} out {} in";
 constexpr std::string_view RECORDS_FORMAT = "records {} out {} in";
 constexpr std::string_view ACCEPTED_FORMAT = "{} accepted";
 constexpr std::string_view REJECTED_FORMAT = "{} rejected";
 constexpr std::string_view THROTTLED_FORMAT = "{} throttled {} bad";
-constexpr std::string_view CONTROL_FORMAT = "control {} state {} dials {}";
 constexpr std::string_view PEER_DROP_PREFIX = "local peer drop ";
 constexpr std::string_view SEEDING_HEADING_FORMAT = "SEEDING - {} MODS - {} UPLOADED";
 constexpr std::string_view CHUNKS_FORMAT = "{} chunks";

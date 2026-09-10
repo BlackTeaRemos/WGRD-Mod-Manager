@@ -1,4 +1,5 @@
 #include "downloader/transfer/TorrentSession.h"
+#include "downloader/transfer/SessionSettings.h"
 
 #include "domain/interfaces/trust/IAnnounceCatalogue.h"
 #include "domain/interfaces/trust/IAnnounceReceiver.h"
@@ -32,7 +33,7 @@ using wgrd::domain::SignedAnnounce;
 using wgrd::downloader::TorrentSession;
 
 namespace {
-constexpr std::string_view LOOPBACK = "127.0.0.1:0";
+constexpr std::string_view LOOPBACK = wgrd::downloader::SessionSettings::LOOPBACK_INTERFACES;
 
 class TemporaryTree {
 public:

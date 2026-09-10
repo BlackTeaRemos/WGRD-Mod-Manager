@@ -5,6 +5,7 @@
 #include "domain/types/content/ManifestFile.h"
 
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
 
@@ -15,7 +16,8 @@ public:
 
 	[[nodiscard]] std::optional<domain::ManifestFile> Describe(
 		const std::filesystem::path& file,
-		std::string relativePath
+		std::string relativePath,
+		const std::function<void(std::uint64_t)>& report = {}
 	) const;
 
 private:
