@@ -2,9 +2,8 @@
 
 #include "domain/rules/ModNameRule.h"
 #include "domain/types/distribution/TransportLimits.h"
-#include "manager/io/MappedFile.h"
-
 #include <algorithm>
+#include <optional>
 #include <system_error>
 #include <utility>
 
@@ -14,8 +13,7 @@ ManifestBuilder::ManifestBuilder(
 	const domain::IContentHasher& hasher,
 	const domain::IPayloadPathPolicy& pathPolicy
 )
-	: _chunker(&chunker)
-	, _hasher(&hasher)
+	: _lister(chunker, hasher)
 	, _pathPolicy(&pathPolicy) {}
 
 ManifestBuilder::~ManifestBuilder() = default;
@@ -67,29 +65,12 @@ std::expected<domain::ManifestFile, domain::ManifestBuildError> ManifestBuilder:
 	const std::filesystem::path& modFolder,
 	const std::string& relativePath
 ) const {
-	const auto mapped = MappedFile::Open(modFolder / relativePath);
-	if (!mapped.has_value()) {
+	std::optional<domain::ManifestFile> described = _lister.Describe(modFolder / relativePath, relativePath);
+	if (!described.has_value()) {
 		return std::unexpected(domain::ManifestBuildError::FileUnreadable);
 	}
 
-	const std::span<const std::byte> content = mapped->Data();
-	const std::vector<domain::ChunkSpan> spans = _chunker->Split(content);
-
-	std::vector<domain::ManifestChunk> chunks;
-	chunks.reserve(spans.size());
-
-	for (const domain::ChunkSpan& span : spans) {
-		const std::span<const std::byte> slice = content.subspan(span.offset, span.length);
-
-		chunks.push_back(domain::ManifestChunk{
-				_hasher->Hash(slice), static_cast<std::uint64_t>(span.offset), static_cast<std::uint32_t>(span.length)
-			}
-		);
-	}
-
-	return domain::ManifestFile{
-		relativePath, (mapped->Size()), std::move(chunks)
-	};
+	return std::move(*described);
 }
 
 std::uint64_t ManifestBuilder::TotalBytes_(

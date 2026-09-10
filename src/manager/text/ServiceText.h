@@ -76,6 +76,7 @@ constexpr std::string_view REMOVAL_ABSENT = "folder not present";
 constexpr std::string_view REMOVAL_LOCKED = "folder locked";
 constexpr std::string_view REMOVED_PREFIX = "removed ";
 
+constexpr std::string_view INSTALL_INDEXING_BASELINE = "indexing game baseline";
 constexpr std::string_view INSTALL_COMPARING = "comparing against installed";
 constexpr std::string_view INSTALL_FETCHING_MANIFEST = "fetching manifest from peers";
 constexpr std::string_view INSTALL_MANIFEST_REFUSED = "manifest fetch refused";
@@ -90,6 +91,7 @@ constexpr std::string_view INSTALL_FAILED = "install failed";
 constexpr std::string_view INSTALL_FOLDER_UNWRITABLE = "mod folder unwritable";
 constexpr std::string_view INSTALL_HELD_MISSING = "held chunk missing";
 constexpr std::string_view INSTALL_HELD_UNREADABLE = "held chunk unreadable";
+constexpr std::string_view INSTALL_HELD_CORRUPT = "held chunk corrupt";
 constexpr std::string_view INSTALL_REMOTE_UNAVAILABLE = "fetched chunk missing";
 constexpr std::string_view INSTALL_REMOTE_CORRUPT = "fetched chunk corrupt";
 constexpr std::string_view INSTALL_WRITE_FAILED = "install write failed";

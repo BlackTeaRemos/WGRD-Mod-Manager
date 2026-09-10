@@ -121,6 +121,7 @@ TEST_CASE("install fetches a published mod into the mods folder") {
 		hasher,
 		fetcher,
 		installedStore,
+		nullptr,
 		nullptr
 	);
 
@@ -281,6 +282,7 @@ TEST_CASE("reinstalling an unchanged mod fetches nothing") {
 		hasher,
 		fetcher,
 		installedStore,
+		nullptr,
 		nullptr
 	);
 
@@ -399,6 +401,7 @@ TEST_CASE("install pulls the manifest when only the announce is known") {
 		hasher,
 		fetcher,
 		installedStore,
+		nullptr,
 		nullptr
 	);
 

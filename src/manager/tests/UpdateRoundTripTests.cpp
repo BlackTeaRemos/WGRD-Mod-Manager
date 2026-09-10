@@ -1,5 +1,6 @@
 #include "manager/hash/Blake3Hasher.h"
 #include "manager/install/ContentInstaller.h"
+#include "manager/install/EmptyChunkCatalogue.h"
 #include "manager/install/ManifestDiffer.h"
 #include "manager/manifest/ManifestBuilder.h"
 #include "manager/payload/PayloadPathPolicy.h"
@@ -29,6 +30,7 @@ using wgrd::domain::ModManifest;
 using wgrd::manager::Blake3Hasher;
 using wgrd::manager::ContentInstaller;
 using wgrd::manager::ManifestBuilder;
+using wgrd::manager::EmptyChunkCatalogue;
 using wgrd::manager::ManifestDiffer;
 using wgrd::manager::PayloadPathPolicy;
 
@@ -183,6 +185,7 @@ TEST_CASE("update reuses held chunks and fetches only what changed") {
 	const PayloadPathPolicy policy;
 	const ManifestBuilder builder(chunker, hasher, policy);
 	const ManifestDiffer differ;
+	const EmptyChunkCatalogue none;
 	const ContentInstaller installer(hasher);
 
 	const std::vector<std::uint8_t> firstVersion = MakePattern(64 * CHUNK_LENGTH, 3);
@@ -195,7 +198,7 @@ TEST_CASE("update reuses held chunks and fetches only what changed") {
 
 	PublisherChunkSource firstSource(*heldManifest, publisher.Root());
 
-	const InstallPlan firstPlan = differ.Diff(ModManifest(), *heldManifest);
+	const InstallPlan firstPlan = differ.Diff(ModManifest(), consumer.Root(), *heldManifest, none);
 	REQUIRE(firstPlan.RemoteChunkCount() == heldManifest->ChunkCount());
 	REQUIRE(firstPlan.HeldBytes() == 0);
 
@@ -214,7 +217,7 @@ TEST_CASE("update reuses held chunks and fetches only what changed") {
 	const auto targetManifest = builder.Build(publisher.Root(), MakeFingerprint(), "angel_maps", 2);
 	REQUIRE(targetManifest.has_value());
 
-	const InstallPlan updatePlan = differ.Diff(*heldManifest, *targetManifest);
+	const InstallPlan updatePlan = differ.Diff(*heldManifest, consumer.Root(), *targetManifest, none);
 
 	REQUIRE(updatePlan.Files().size() == 1);
 	REQUIRE(updatePlan.Files()[0].path == "packs/ZZ_Win.dat");
@@ -242,6 +245,7 @@ TEST_CASE("seeded update rewrites only the chunks that moved or changed") {
 	const PayloadPathPolicy policy;
 	const ManifestBuilder builder(chunker, hasher, policy);
 	const ManifestDiffer differ;
+	const EmptyChunkCatalogue none;
 	const ContentInstaller installer(hasher);
 
 	const std::vector<std::uint8_t> firstVersion = MakePattern(64 * CHUNK_LENGTH, 3);
@@ -253,7 +257,7 @@ TEST_CASE("seeded update rewrites only the chunks that moved or changed") {
 
 	PublisherChunkSource firstSource(*heldManifest, publisher.Root());
 	const auto firstReport = installer.Apply(
-		differ.Diff(ModManifest(), *heldManifest),
+		differ.Diff(ModManifest(), consumer.Root(), *heldManifest, none),
 		consumer.Root(),
 		firstSource
 	);
@@ -270,7 +274,7 @@ TEST_CASE("seeded update rewrites only the chunks that moved or changed") {
 	const auto targetManifest = builder.Build(publisher.Root(), MakeFingerprint(), "angel_maps", 2);
 	REQUIRE(targetManifest.has_value());
 
-	const InstallPlan updatePlan = differ.Diff(*heldManifest, *targetManifest);
+	const InstallPlan updatePlan = differ.Diff(*heldManifest, consumer.Root(), *targetManifest, none);
 
 	for (const wgrd::domain::FilePlan& file : updatePlan.Files()) {
 		const std::filesystem::path target = consumer.Root() / file.path;
@@ -314,6 +318,7 @@ TEST_CASE("seeded update grows a file and fetches only the appended chunks") {
 	const PayloadPathPolicy policy;
 	const ManifestBuilder builder(chunker, hasher, policy);
 	const ManifestDiffer differ;
+	const EmptyChunkCatalogue none;
 	const ContentInstaller installer(hasher);
 
 	const std::vector<std::uint8_t> firstVersion = MakePattern(8 * CHUNK_LENGTH, 3);
@@ -325,7 +330,7 @@ TEST_CASE("seeded update grows a file and fetches only the appended chunks") {
 
 	PublisherChunkSource firstSource(*heldManifest, publisher.Root());
 	REQUIRE(installer.Apply(
-			differ.Diff(ModManifest(), *heldManifest),
+			differ.Diff(ModManifest(), consumer.Root(), *heldManifest, none),
 			consumer.Root(),
 			firstSource
 		).has_value()
@@ -340,7 +345,7 @@ TEST_CASE("seeded update grows a file and fetches only the appended chunks") {
 	const auto targetManifest = builder.Build(publisher.Root(), MakeFingerprint(), "angel_maps", 2);
 	REQUIRE(targetManifest.has_value());
 
-	const InstallPlan updatePlan = differ.Diff(*heldManifest, *targetManifest);
+	const InstallPlan updatePlan = differ.Diff(*heldManifest, consumer.Root(), *targetManifest, none);
 
 	REQUIRE(updatePlan.RemoteChunkCount() == 3);
 
@@ -385,6 +390,7 @@ TEST_CASE("install rejects a chunk whose bytes do not match its digest") {
 	const PayloadPathPolicy policy;
 	const ManifestBuilder builder(chunker, hasher, policy);
 	const ManifestDiffer differ;
+	const EmptyChunkCatalogue none;
 	const ContentInstaller installer(hasher);
 
 	WriteBytes(publisher.Root() / "payload.dat", MakePattern(2 * CHUNK_LENGTH, 5));
@@ -405,7 +411,7 @@ TEST_CASE("install rejects a chunk whose bytes do not match its digest") {
 	};
 
 	LyingChunkSource source;
-	const InstallPlan plan = differ.Diff(ModManifest(), *manifest);
+	const InstallPlan plan = differ.Diff(ModManifest(), consumer.Root(), *manifest, none);
 
 	const auto report = installer.Apply(plan, consumer.Root(), source);
 
@@ -422,6 +428,7 @@ TEST_CASE("diff reports files the target dropped") {
 	const PayloadPathPolicy policy;
 	const ManifestBuilder builder(chunker, hasher, policy);
 	const ManifestDiffer differ;
+	const EmptyChunkCatalogue none;
 
 	WriteBytes(publisher.Root() / "keep.dat", MakePattern(100, 1));
 	WriteBytes(publisher.Root() / "drop.dat", MakePattern(100, 2));
@@ -435,7 +442,7 @@ TEST_CASE("diff reports files the target dropped") {
 	const auto target = builder.Build(publisher.Root(), MakeFingerprint(), "mod", 2);
 	REQUIRE(target.has_value());
 
-	const InstallPlan plan = differ.Diff(*held, *target);
+	const InstallPlan plan = differ.Diff(*held, publisher.Root(), *target, none);
 
 	REQUIRE(plan.Removals().size() == 1);
 	REQUIRE(plan.Removals()[0] == "drop.dat");

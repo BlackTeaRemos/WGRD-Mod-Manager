@@ -25,7 +25,8 @@ InstallService::InstallService(
 	const domain::IContentHasher& hasher,
 	domain::IChunkFetcher& fetcher,
 	const InstalledReleaseStore& installed,
-	domain::ISeedingService* seeding
+	domain::ISeedingService* seeding,
+	domain::IBaselineIndexService* baseline
 )
 	: _modsDirectory(std::move(modsDirectory))
 	, _dataDirectory(std::move(dataDirectory))
@@ -33,12 +34,12 @@ InstallService::InstallService(
 	, _store(&store)
 	, _authenticator(&authenticator)
 	, _codec(&codec)
-	, _manifestBuilder(&manifestBuilder)
 	, _fetcher(&fetcher)
 	, _installed(&installed)
 	, _seeding(seeding)
 	, _hasher(&hasher)
 	, _differ()
+	, _planner(_modsDirectory, manifestBuilder, _differ, baseline)
 	, _installer(hasher)
 	, _guard()
 	, _progress()
@@ -48,6 +49,7 @@ InstallService::InstallService(
 	, _awaitingManifest(false)
 	, _worker()
 	, _busy(false)
+	, _abandoned(false)
 	, _completed(0)
 	, _settled(0) {}
 
@@ -336,25 +338,21 @@ void InstallService::RunPlan_() {
 		target = _target;
 	}
 
-	const std::filesystem::path modFolder = _modsDirectory / target.ModName();
-
-	domain::ModManifest held;
-
-	std::error_code failure;
-	if (std::filesystem::is_directory(modFolder, failure)) {
-		const auto rebuilt = _manifestBuilder->Build(
-			modFolder,
-			target.Publisher(),
-			target.ModName(),
-			0
-		);
-
-		if (rebuilt.has_value()) {
-			held = *rebuilt;
+	const std::optional<domain::InstallPlan> plan = _planner.Plan(
+		target,
+		[this]() {
+			return _abandoned.load();
+		},
+		[this](const std::string_view message) {
+			Publish_(domain::InstallPhase::Planning, std::string(message));
 		}
+	);
+
+	if (!plan.has_value()) {
+		return;
 	}
 
-	StartFetch_(target, _differ.Diff(held, target));
+	StartFetch_(target, *plan);
 }
 
 void InstallService::StartFetch_(
@@ -540,9 +538,12 @@ void InstallService::Poll() {
 }
 
 void InstallService::Cancel() {
+	_abandoned = true;
 	_fetcher->Cancel();
 
 	JoinWorker_();
+
+	_abandoned = false;
 
 	const bool wasBusy = _busy.exchange(false);
 

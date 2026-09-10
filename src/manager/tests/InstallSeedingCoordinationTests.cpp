@@ -1,4 +1,4 @@
-﻿#include "manager/announce/AnnounceReceiver.h"
+#include "manager/announce/AnnounceReceiver.h"
 #include "manager/hash/Blake3Hasher.h"
 #include "manager/install/InstalledReleaseStore.h"
 #include "manager/manifest/ManifestBuilder.h"
@@ -422,7 +422,8 @@ TEST_CASE("repair withdraws the seed before fetching") {
 		world.hasher,
 		fetcher,
 		world.installedStore,
-		&seeding
+		&seeding,
+		nullptr
 	);
 
 	REQUIRE(installService.Start(world.identifier).has_value());
@@ -478,7 +479,8 @@ TEST_CASE("a refused duplicate fetch settles as seed conflict") {
 		world.hasher,
 		installFetcher,
 		world.installedStore,
-		&seeding
+		&seeding,
+		nullptr
 	);
 
 	REQUIRE(installFirst.Start(world.identifier).has_value());
@@ -499,7 +501,8 @@ TEST_CASE("a refused duplicate fetch settles as seed conflict") {
 		world.hasher,
 		refusingFetcher,
 		world.installedStore,
-		&seeding
+		&seeding,
+		nullptr
 	);
 
 	REQUIRE(repairService.Verify(world.identifier).has_value());

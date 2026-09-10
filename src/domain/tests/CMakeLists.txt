@@ -2,4 +2,5 @@
     SOURCES
         InstallFolderTests.cpp
         RepositoryUriTests.cpp
+        BaselinePackLayoutTests.cpp
 )

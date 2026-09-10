@@ -10,6 +10,7 @@ StagedFileSeeder::StagedFileSeeder(const domain::IContentHasher& hasher)
 	: _hasher(&hasher) {}
 
 bool StagedFileSeeder::StagedMatchesHeldRanges_(
+	const std::filesystem::path& original,
 	const std::filesystem::path& staged,
 	const domain::FilePlan& file
 ) const {
@@ -25,7 +26,7 @@ bool StagedFileSeeder::StagedMatchesHeldRanges_(
 			continue;
 		}
 
-		if (placement.heldPath != file.path || placement.heldOffset != placement.targetOffset) {
+		if (placement.heldFile != original || placement.heldOffset != placement.targetOffset) {
 			continue;
 		}
 
@@ -84,7 +85,7 @@ bool StagedFileSeeder::Seed(
 	}
 
 	if (std::filesystem::is_regular_file(staged, failure) && !failure) {
-		if (StagedMatchesHeldRanges_(staged, file)) {
+		if (StagedMatchesHeldRanges_(original, staged, file)) {
 			resumed = true;
 		} else {
 			failure.clear();

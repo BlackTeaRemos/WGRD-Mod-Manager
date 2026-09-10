@@ -16,6 +16,7 @@ enum class InstallError {
 	FolderUnwritable
 	, HeldChunkMissing
 	, HeldChunkUnreadable
+	, HeldChunkCorrupt
 	, RemoteChunkUnavailable
 	, RemoteChunkCorrupt
 	, WriteFailed
@@ -63,13 +64,12 @@ private:
 	);
 
 	[[nodiscard]] static bool AlreadySeeded_(
-		const domain::FilePlan& file,
+		const std::filesystem::path& target,
 		const domain::ChunkPlacement& placement
 	);
 
 	[[nodiscard]] std::expected<std::vector<std::byte>, InstallError> ResolveChunk_(
 		const domain::ChunkPlacement& placement,
-		const std::filesystem::path& modFolder,
 		domain::IChunkSource& chunkSource
 	) const;
 

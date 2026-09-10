@@ -14,21 +14,24 @@ ContentInstaller::ContentInstaller(const domain::IContentHasher& hasher)
 
 std::expected<std::vector<std::byte>, InstallError> ContentInstaller::ResolveChunk_(
 	const domain::ChunkPlacement& placement,
-	const std::filesystem::path& modFolder,
 	domain::IChunkSource& chunkSource
 ) const {
 	if (placement.source == domain::ChunkSourceKind::Held) {
-		const auto mapped = MappedFile::Open(modFolder / placement.heldPath);
+		const auto mapped = MappedFile::Open(placement.heldFile);
 		if (!mapped.has_value()) {
 			return std::unexpected(InstallError::HeldChunkMissing);
 		}
 
 		const std::span<const std::byte> content = mapped->Data();
-		if (placement.heldOffset + placement.length > content.size()) {
+		if (placement.heldOffset > content.size() || placement.length > content.size() - placement.heldOffset) {
 			return std::unexpected(InstallError::HeldChunkUnreadable);
 		}
 
 		const std::span<const std::byte> slice = content.subspan(placement.heldOffset, placement.length);
+		if (_hasher->Hash(slice) != placement.digest) {
+			return std::unexpected(InstallError::HeldChunkCorrupt);
+		}
+
 		return std::vector<std::byte>(slice.begin(), slice.end());
 	}
 
@@ -67,11 +70,11 @@ bool ContentInstaller::Swap_(
 }
 
 bool ContentInstaller::AlreadySeeded_(
-	const domain::FilePlan& file,
+	const std::filesystem::path& target,
 	const domain::ChunkPlacement& placement
 ) {
 	return placement.source == domain::ChunkSourceKind::Held
-	       && placement.heldPath == file.path
+	       && placement.heldFile == target
 	       && placement.heldOffset == placement.targetOffset;
 }
 
@@ -112,12 +115,12 @@ std::expected<void, InstallError> ContentInstaller::WriteStagedFile_(
 			continue;
 		}
 
-		if (skipPlaced && AlreadySeeded_(file, placement)) {
+		if (skipPlaced && AlreadySeeded_(target, placement)) {
 			report.heldBytes += placement.length;
 			continue;
 		}
 
-		const auto bytes = ResolveChunk_(placement, modFolder, chunkSource);
+		const auto bytes = ResolveChunk_(placement, chunkSource);
 		if (!bytes.has_value()) {
 			return std::unexpected(bytes.error());
 		}

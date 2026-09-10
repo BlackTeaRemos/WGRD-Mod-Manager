@@ -5,6 +5,7 @@
 #include "domain/interfaces/content/IManifestBuilder.h"
 #include "domain/interfaces/content/IPayloadPathPolicy.h"
 #include "domain/types/content/ManifestFile.h"
+#include "manager/manifest/FileChunkLister.h"
 
 #include <cstdint>
 #include <expected>
@@ -58,8 +59,7 @@ private:
 
 	static bool IsAcceptableModName_(std::string_view modName);
 
-	const domain::IContentChunker* _chunker;
-	const domain::IContentHasher* _hasher;
+	FileChunkLister _lister;
 	const domain::IPayloadPathPolicy* _pathPolicy;
 };
 }

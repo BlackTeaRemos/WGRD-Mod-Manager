@@ -72,7 +72,7 @@ std::vector<std::byte> ReadBytes(const std::filesystem::path& source) {
 	return bytes;
 }
 
-FilePlan MakePlan(const Blake3Hasher& hasher, const std::vector<std::byte>& original) {
+FilePlan MakePlan(const Blake3Hasher& hasher, const std::filesystem::path& heldFile, const std::vector<std::byte>& original) {
 	const auto heldDigest = hasher.Hash(
 		std::span<const std::byte>(original.data(), HELD_LENGTH)
 	);
@@ -82,7 +82,7 @@ FilePlan MakePlan(const Blake3Hasher& hasher, const std::vector<std::byte>& orig
 
 	std::vector<ChunkPlacement> placements;
 	placements.push_back(ChunkPlacement{
-			heldDigest, 0, HELD_LENGTH, ChunkSourceKind::Held, "pack.dat", 0
+			heldDigest, 0, HELD_LENGTH, ChunkSourceKind::Held, heldFile, 0
 		}
 	);
 	placements.push_back(ChunkPlacement{
@@ -90,7 +90,7 @@ FilePlan MakePlan(const Blake3Hasher& hasher, const std::vector<std::byte>& orig
 			HELD_LENGTH,
 			static_cast<std::uint32_t>(FILE_LENGTH - HELD_LENGTH),
 			ChunkSourceKind::Remote,
-			std::string(),
+			std::filesystem::path(),
 			0
 		}
 	);
@@ -106,7 +106,7 @@ TEST_CASE("seeding without staging copies the original") {
 	const std::vector<std::byte> original = MakePattern(FILE_LENGTH, 3);
 	WriteBytes(tree.Root() / "pack.dat", original);
 
-	const FilePlan plan = MakePlan(hasher, original);
+	const FilePlan plan = MakePlan(hasher, tree.Root() / "pack.dat", original);
 	const StagedFileSeeder seeder(hasher);
 
 	bool resumed = false;
@@ -124,7 +124,7 @@ TEST_CASE("seeding resumes staging whose held ranges still match") {
 	WriteBytes(tree.Root() / "pack.dat", original);
 	WriteBytes(tree.Root() / "pack.dat.partial", original);
 
-	const FilePlan plan = MakePlan(hasher, original);
+	const FilePlan plan = MakePlan(hasher, tree.Root() / "pack.dat", original);
 	const StagedFileSeeder seeder(hasher);
 
 	bool resumed = false;
@@ -143,7 +143,7 @@ TEST_CASE("seeding rejects stale staging and reseeds from the original") {
 	std::vector<std::byte> stale = MakePattern(FILE_LENGTH, 90);
 	WriteBytes(tree.Root() / "pack.dat.partial", stale);
 
-	const FilePlan plan = MakePlan(hasher, original);
+	const FilePlan plan = MakePlan(hasher, tree.Root() / "pack.dat", original);
 	const StagedFileSeeder seeder(hasher);
 
 	bool resumed = false;

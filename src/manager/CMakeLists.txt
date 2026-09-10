@@ -1,4 +1,4 @@
-﻿find_package(unofficial-sodium CONFIG REQUIRED)
+find_package(unofficial-sodium CONFIG REQUIRED)
 find_package(blake3 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
@@ -64,6 +64,8 @@ wgrd_add_module(manager
         hash/Blake3Hasher.cpp
         io/MappedFile.h
         io/MappedFile.cpp
+        manifest/FileChunkLister.h
+        manifest/FileChunkLister.cpp
         manifest/ManifestBuilder.h
         manifest/ManifestBuilder.cpp
         manifest/ManifestCodec.h
@@ -81,6 +83,26 @@ wgrd_add_module(manager
         publish/AnnounceSigner.cpp
         install/ManifestDiffer.h
         install/ManifestDiffer.cpp
+        install/EmptyChunkCatalogue.h
+        install/EmptyChunkCatalogue.cpp
+        install/InstallPlanner.h
+        install/InstallPlanner.cpp
+        baseline/BaselineFileEntry.h
+        baseline/records/BaselineFileRecord.h
+        baseline/records/FileStampReader.h
+        baseline/records/FileStampReader.cpp
+        baseline/BaselineFileScanner.h
+        baseline/BaselineFileScanner.cpp
+        baseline/records/BaselineRecordCodec.h
+        baseline/records/BaselineRecordCodec.cpp
+        baseline/records/BaselineRecordStore.h
+        baseline/records/BaselineRecordStore.cpp
+        baseline/BaselineChunkCatalogue.h
+        baseline/BaselineChunkCatalogue.cpp
+        baseline/BackgroundThreadMode.h
+        baseline/BackgroundThreadMode.cpp
+        baseline/BaselineIndexService.h
+        baseline/BaselineIndexService.cpp
         install/InstalledReleaseStore.h
         install/InstalledReleaseStore.cpp
         mirror/MirrorSwitch.h

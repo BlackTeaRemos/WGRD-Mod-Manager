@@ -1,4 +1,4 @@
-﻿name: Build and release
+name: Build and release
 
 on:
   push:
@@ -98,8 +98,8 @@ jobs:
           . ./scripts/Enter-BuildEnvironment.ps1
           ctest --test-dir "build/$env:BUILD_PRESET" --output-on-failure
 
-      - name: Package
-        id: package
+      - name: Collect executable
+        id: collect
         shell: pwsh
         env:
           REF_TYPE: ${{ github.ref_type }}
@@ -118,15 +118,25 @@ jobs:
             throw "executable not found"
           }
 
-          $asset = "wgrd-mod-manager-$version-${{ env.TARGET }}.zip"
-          Compress-Archive -Path $built.FullName -DestinationPath $asset -Force
-
           Copy-Item -LiteralPath $built.FullName -Destination $env:EXE_NAME -Force
+
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "version $version"
+
+      - name: Package
+        id: package
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.collect.outputs.version }}
+        run: |
+          $asset = "wgrd-mod-manager-$env:VERSION-${{ env.TARGET }}.zip"
+          Compress-Archive -Path $env:EXE_NAME -DestinationPath $asset -Force
+
           $digest = (Get-FileHash -LiteralPath $env:EXE_NAME -Algorithm SHA256).Hash.ToLower()
 
-          "asset=$asset"     | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "digest=$digest"   | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "asset=$asset"           | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "version=$env:VERSION"   | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "digest=$digest"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "packaged $asset"
           Write-Host "digest $digest"
 

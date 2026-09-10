@@ -8,12 +8,18 @@ ManifestDiffer::ManifestDiffer() = default;
 
 ManifestDiffer::~ManifestDiffer() = default;
 
-ManifestDiffer::HeldChunkIndex ManifestDiffer::IndexHeldChunks_(const domain::ModManifest& held) {
+ManifestDiffer::HeldChunkIndex ManifestDiffer::IndexHeldChunks_(
+	const domain::ModManifest& held,
+	const std::filesystem::path& heldRoot
+) {
 	HeldChunkIndex index;
 
 	for (const domain::ManifestFile& file : held.Files()) {
 		for (const domain::ManifestChunk& chunk : file.chunks) {
-			index.try_emplace(chunk.digest.ToHex(), HeldChunk{file.path, chunk.offset, chunk.length});
+			index.try_emplace(
+				chunk.digest.ToHex(),
+				domain::HeldChunkLocation{heldRoot / file.path, chunk.offset, chunk.length}
+			);
 		}
 	}
 
@@ -35,11 +41,39 @@ bool ManifestDiffer::FileUnchanged_(
 	return match != held.Files().end() && *match == file;
 }
 
+domain::ChunkPlacement ManifestDiffer::Place_(
+	const domain::ManifestChunk& chunk,
+	const HeldChunkIndex& heldChunks,
+	const domain::IHeldChunkCatalogue& catalogue
+) {
+	const auto match = heldChunks.find(chunk.digest.ToHex());
+
+	if (match != heldChunks.end()) {
+		return domain::ChunkPlacement{
+			chunk.digest, chunk.offset, chunk.length, domain::ChunkSourceKind::Held, match->second.file, match->second.offset
+		};
+	}
+
+	const std::optional<domain::HeldChunkLocation> catalogued = catalogue.Locate(chunk.digest);
+
+	if (catalogued.has_value() && catalogued->length == chunk.length) {
+		return domain::ChunkPlacement{
+			chunk.digest, chunk.offset, chunk.length, domain::ChunkSourceKind::Held, catalogued->file, catalogued->offset
+		};
+	}
+
+	return domain::ChunkPlacement{
+		chunk.digest, chunk.offset, chunk.length, domain::ChunkSourceKind::Remote, std::filesystem::path(), 0
+	};
+}
+
 domain::InstallPlan ManifestDiffer::Diff(
 	const domain::ModManifest& held,
-	const domain::ModManifest& target
+	const std::filesystem::path& heldRoot,
+	const domain::ModManifest& target,
+	const domain::IHeldChunkCatalogue& catalogue
 ) const {
-	const HeldChunkIndex heldChunks = IndexHeldChunks_(held);
+	const HeldChunkIndex heldChunks = IndexHeldChunks_(held, heldRoot);
 
 	std::vector<domain::FilePlan> files;
 	files.reserve(target.Files().size());
@@ -53,20 +87,7 @@ domain::InstallPlan ManifestDiffer::Diff(
 		placements.reserve(file.chunks.size());
 
 		for (const domain::ManifestChunk& chunk : file.chunks) {
-			const auto match = heldChunks.find(chunk.digest.ToHex());
-
-			if (match == heldChunks.end()) {
-				placements.push_back(domain::ChunkPlacement{
-						chunk.digest, chunk.offset, chunk.length, domain::ChunkSourceKind::Remote, std::string(), 0
-					}
-				);
-				continue;
-			}
-
-			placements.push_back(domain::ChunkPlacement{
-					chunk.digest, chunk.offset, chunk.length, domain::ChunkSourceKind::Held, match->second.path, match->second.offset
-				}
-			);
+			placements.push_back(Place_(chunk, heldChunks, catalogue));
 		}
 
 		files.push_back(domain::FilePlan{file.path, file.size, std::move(placements)});

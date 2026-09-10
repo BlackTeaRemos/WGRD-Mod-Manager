@@ -6,6 +6,7 @@
 #include "gui/platform/Win32FilePicker.h"
 #include "gui/platform/Win32UriLauncher.h"
 #include "manager/announce/AnnounceReceiver.h"
+#include "manager/baseline/BaselineIndexService.h"
 #include "manager/environment/GameLocator.h"
 #include "manager/hash/Blake3Hasher.h"
 #include "manager/manifest/ManifestBuilder.h"
@@ -40,6 +41,7 @@ constexpr std::string_view TORRENT_FOLDER = "torrents";
 constexpr std::string_view ANNOUNCE_FOLDER = "announces";
 constexpr std::string_view PROFILE_FOLDER = "profiles";
 constexpr std::string_view INSTALLED_FOLDER = "installed";
+constexpr std::string_view BASELINE_FOLDER = "baseline";
 
 std::optional<wgrd::domain::GameInstallation> LocateGame() {
 	std::optional<wgrd::domain::GameInstallation> installation = wgrd::manager::GameLocator::Resolve();
@@ -79,6 +81,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 	std::unique_ptr<wgrd::manager::RegistryUpdateService> registryUpdater;
 	std::unique_ptr<wgrd::manager::PatcherService> patcherService;
 	std::unique_ptr<wgrd::manager::InstalledReleaseStore> installedStore;
+	std::unique_ptr<wgrd::manager::BaselineIndexService> baselineIndex;
 	std::unique_ptr<wgrd::manager::InstallService> installService;
 	std::unique_ptr<wgrd::manager::ModRemovalService> removalService;
 	std::unique_ptr<wgrd::manager::MirrorService> mirrorService;
@@ -150,6 +153,13 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 			&swarm
 		);
 
+		baselineIndex = std::make_unique<wgrd::manager::BaselineIndexService>(
+			installation->root,
+			dataDirectory / BASELINE_FOLDER,
+			chunker,
+			hasher
+		);
+
 		installService = std::make_unique<wgrd::manager::InstallService>(
 			installation->modsDirectory,
 			dataDirectory,
@@ -161,8 +171,11 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 			hasher,
 			swarm,
 			*installedStore,
-			&swarm
+			&swarm,
+			baselineIndex.get()
 		);
+
+		baselineIndex->Start();
 
 		removalService = std::make_unique<wgrd::manager::ModRemovalService>(
 			installation->modsDirectory,

@@ -14,6 +14,8 @@ namespace wgrd::manager {
 			return text::INSTALL_HELD_MISSING;
 		case InstallError::HeldChunkUnreadable:
 			return text::INSTALL_HELD_UNREADABLE;
+		case InstallError::HeldChunkCorrupt:
+			return text::INSTALL_HELD_CORRUPT;
 		case InstallError::RemoteChunkUnavailable:
 			return text::INSTALL_REMOTE_UNAVAILABLE;
 		case InstallError::RemoteChunkCorrupt:

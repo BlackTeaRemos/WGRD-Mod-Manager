@@ -1,10 +1,11 @@
 #pragma once
 
+#include "domain/interfaces/content/IHeldChunkCatalogue.h"
 #include "domain/interfaces/content/IManifestDiffer.h"
 #include "domain/types/content/ModManifest.h"
 #include "domain/types/distribution/InstallPlan.h"
 
-#include <cstdint>
+#include <filesystem>
 #include <map>
 #include <string>
 
@@ -17,23 +18,28 @@ public:
 
 	[[nodiscard]] domain::InstallPlan Diff(
 		const domain::ModManifest& held,
-		const domain::ModManifest& target
+		const std::filesystem::path& heldRoot,
+		const domain::ModManifest& target,
+		const domain::IHeldChunkCatalogue& catalogue
 	) const override;
 
 private:
-	struct HeldChunk {
-		std::string path;
-		std::uint64_t offset;
-		std::uint32_t length;
-	};
+	using HeldChunkIndex = std::map<std::string, domain::HeldChunkLocation>;
 
-	using HeldChunkIndex = std::map<std::string, HeldChunk>;
-
-	[[nodiscard]] static HeldChunkIndex IndexHeldChunks_(const domain::ModManifest& held);
+	[[nodiscard]] static HeldChunkIndex IndexHeldChunks_(
+		const domain::ModManifest& held,
+		const std::filesystem::path& heldRoot
+	);
 
 	[[nodiscard]] static bool FileUnchanged_(
 		const domain::ModManifest& held,
 		const domain::ManifestFile& file
+	);
+
+	[[nodiscard]] static domain::ChunkPlacement Place_(
+		const domain::ManifestChunk& chunk,
+		const HeldChunkIndex& heldChunks,
+		const domain::IHeldChunkCatalogue& catalogue
 	);
 };
 }

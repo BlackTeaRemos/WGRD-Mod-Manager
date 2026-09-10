@@ -50,7 +50,7 @@ InstalledContentAuditor::Audit InstalledContentAuditor::Examine(
 					chunk.offset,
 					chunk.length,
 					present ? domain::ChunkSourceKind::Held : domain::ChunkSourceKind::Remote,
-					present ? file.path : std::string(),
+					present ? modFolder / file.path : std::filesystem::path(),
 					present ? chunk.offset : 0
 				}
 			);

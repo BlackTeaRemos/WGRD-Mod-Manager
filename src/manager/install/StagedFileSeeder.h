@@ -19,6 +19,7 @@ public:
 
 private:
 	[[nodiscard]] bool StagedMatchesHeldRanges_(
+		const std::filesystem::path& original,
 		const std::filesystem::path& staged,
 		const domain::FilePlan& file
 	) const;

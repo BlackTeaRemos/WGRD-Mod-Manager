@@ -21,6 +21,8 @@
         InstallServiceTests.cpp
         InstallSeedingCoordinationTests.cpp
         ManifestDifferTests.cpp
+        BaselineCatalogueTests.cpp
+        BaselineIndexServiceTests.cpp
         StagedFileSeederTests.cpp
         CatalogSeedingTests.cpp
         ModRemovalTests.cpp

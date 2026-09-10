@@ -55,6 +55,10 @@ cmake --build --preset windows-release
 
 Copy `scripts/ToolchainPaths.local.ps1.example` to `scripts/ToolchainPaths.local.ps1` and point it at your tools first.
 
+## Privacy
+
+Privacy: this program contacts GitHub for its own updates, the publisher key registry, and the patcher, and it joins the BitTorrent network to exchange mods with other players, which exposes your IP address to peers, trackers, and the DHT as any torrent client does. It sends nothing else, stores its state only in `Mods/.wgrdmm` beside the game, and the authors collect no data. Delete the executable and that folder to uninstall.
+
 ## Licence
 
 GNU General Public License, version 3.

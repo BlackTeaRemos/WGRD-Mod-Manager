@@ -3,6 +3,7 @@
 #include "domain/interfaces/content/IChunkFetcher.h"
 #include "domain/interfaces/content/IManifestBuilder.h"
 #include "domain/interfaces/content/IManifestCodec.h"
+#include "domain/interfaces/services/IBaselineIndexService.h"
 #include "domain/interfaces/services/IInstallService.h"
 #include "domain/interfaces/services/ISeedingService.h"
 #include "domain/interfaces/trust/IManifestAuthenticator.h"
@@ -10,6 +11,7 @@
 #include "domain/types/distribution/InstallPlan.h"
 #include "manager/announce/AnnounceReceiver.h"
 #include "manager/install/ContentInstaller.h"
+#include "manager/install/InstallPlanner.h"
 #include "manager/install/InstalledReleaseStore.h"
 #include "manager/install/ManifestDiffer.h"
 #include "manager/manifest/ManifestStore.h"
@@ -38,7 +40,8 @@ public:
 		const domain::IContentHasher& hasher,
 		domain::IChunkFetcher& fetcher,
 		const InstalledReleaseStore& installed,
-		domain::ISeedingService* seeding
+		domain::ISeedingService* seeding,
+		domain::IBaselineIndexService* baseline
 	);
 
 	InstallService(const InstallService&) = delete;
@@ -103,13 +106,13 @@ private:
 	const ManifestStore* _store;
 	const domain::IManifestAuthenticator* _authenticator;
 	const domain::IManifestCodec* _codec;
-	const domain::IManifestBuilder* _manifestBuilder;
 	domain::IChunkFetcher* _fetcher;
 	const InstalledReleaseStore* _installed;
 	domain::ISeedingService* _seeding;
 
 	const domain::IContentHasher* _hasher;
 	ManifestDiffer _differ;
+	InstallPlanner _planner;
 	ContentInstaller _installer;
 
 	mutable std::mutex _guard;
@@ -121,6 +124,7 @@ private:
 
 	std::thread _worker;
 	std::atomic<bool> _busy;
+	std::atomic<bool> _abandoned;
 	std::atomic<std::uint64_t> _completed;
 	std::atomic<std::uint64_t> _settled;
 };

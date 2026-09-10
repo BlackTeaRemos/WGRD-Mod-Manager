@@ -3,6 +3,7 @@
 #include "domain/types/content/ChunkDigest.h"
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -16,7 +17,7 @@ struct ChunkPlacement {
 	std::uint64_t targetOffset;
 	std::uint32_t length;
 	ChunkSourceKind source;
-	std::string heldPath;
+	std::filesystem::path heldFile;
 	std::uint64_t heldOffset;
 
 	bool operator==(const ChunkPlacement& other) const = default;

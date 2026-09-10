@@ -6,6 +6,8 @@
         types/content/ChunkSizes.cpp
         types/content/ChunkSizes.h
         types/content/ChunkSpan.h
+        types/content/FileStamp.h
+        types/content/HeldChunkLocation.h
         types/content/InstalledRelease.h
         types/content/ManifestChunk.h
         types/content/ManifestFile.h
@@ -50,6 +52,11 @@
         rules/PublisherNameRule.cpp
         rules/ModNameRule.h
         rules/ModNameRule.cpp
+        rules/BaselinePackLayout.h
+        rules/BaselinePackLayout.cpp
+        types/status/BaselineIndexStatus.h
+        interfaces/content/IHeldChunkCatalogue.h
+        interfaces/services/IBaselineIndexService.h
         types/profile/SteamAccount.h
         types/profile/GameProfileFile.h
         types/status/PublisherState.h

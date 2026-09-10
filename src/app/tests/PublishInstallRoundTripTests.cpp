@@ -230,7 +230,8 @@ TEST_CASE("published mod installs byte identical on a second peer") {
 		hasher,
 		leecherSwarm,
 		leecherInstalled,
-		&leecherSwarm
+		&leecherSwarm,
+		nullptr
 	);
 
 	REQUIRE(installService.Start(published->identifier).has_value());

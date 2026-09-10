@@ -2,6 +2,8 @@
 
 #include <windows.h>
 
+#include <cstdint>
+#include <limits>
 #include <system_error>
 
 namespace wgrd::manager {
@@ -69,11 +71,6 @@ std::expected<MappedFile, MappedFileError> MappedFile::Open(const std::filesyste
 		return std::unexpected(MappedFileError::NotFound);
 	}
 
-	const std::uintmax_t fileSize = std::filesystem::file_size(path, failure);
-	if (failure) {
-		return std::unexpected(MappedFileError::Unopenable);
-	}
-
 	MappedFile mapped;
 
 	mapped._fileHandle = CreateFileW(
@@ -90,6 +87,13 @@ std::expected<MappedFile, MappedFileError> MappedFile::Open(const std::filesyste
 		return std::unexpected(MappedFileError::Unopenable);
 	}
 
+	LARGE_INTEGER measuredSize{};
+	if (!GetFileSizeEx(mapped._fileHandle, &measuredSize) || measuredSize.QuadPart < 0
+	    || static_cast<std::uint64_t>(measuredSize.QuadPart) > std::numeric_limits<std::size_t>::max()) {
+		return std::unexpected(MappedFileError::Unopenable);
+	}
+
+	const std::size_t fileSize = static_cast<std::size_t>(measuredSize.QuadPart);
 	if (fileSize == 0) {
 		return mapped;
 	}
