@@ -49,6 +49,8 @@ bool OrderEntryList::Draw(
 	std::optional<float> insertionY;
 	const float leftWidth = rightX - area.origin.x;
 	const float listHeight = std::max(height - (cursorY - area.origin.y), 1.0f);
+	const float contentWidth = std::max(leftWidth - ImGui::GetStyle().ScrollbarSize, 1.0f);
+	const float contentRight = area.origin.x + contentWidth;
 	bool apply = false;
 
 	ImGui::SetCursorScreenPos(ImVec2(area.origin.x, cursorY));
@@ -63,7 +65,7 @@ bool OrderEntryList::Draw(
 
 	design::HeadingBar(
 		ImVec2(area.origin.x, leftY),
-		leftWidth,
+		contentWidth,
 		text::order::HEADING,
 		design::HeadingLevel::Section
 	);
@@ -75,7 +77,7 @@ bool OrderEntryList::Draw(
 		ImGui::PushID(entry.folder.Value().c_str());
 		const ImVec2 rowTopLeft(area.origin.x, leftY);
 		const float rowHeight = ROW_HEIGHT + (entry.enabled && !entry.present ? 14.0f : 0.0f);
-		const ImVec2 rowBottomRight(rightX, leftY + rowHeight);
+		const ImVec2 rowBottomRight(contentRight, leftY + rowHeight);
 
 		const bool blocking = entry.enabled && !entry.present;
 		const bool selected = entry.folder.Value() == _selected;
@@ -121,7 +123,7 @@ bool OrderEntryList::Draw(
 			_selected = entry.folder.Value();
 		}
 		const ImU32 nameColor = entry.enabled ? tokens::SECONDARY : tokens::TEXT_DISABLED;
-		design::ClippedText::Draw(ImVec2(rowTopLeft.x + 62.0f, leftY + 4.0f), leftWidth - 125.0f, entry.folder.Value(), nameColor, 12.0f, FontRole::Name);
+		design::ClippedText::Draw(ImVec2(rowTopLeft.x + 62.0f, leftY + 4.0f), contentWidth - 125.0f, entry.folder.Value(), nameColor, 12.0f, FontRole::Name);
 
 		if (Unverified_(catalogService, entry.folder) && leftWidth > 600.0f) {
 			const float nameWidth = design::MeasureText(entry.folder.Value(), 12.0f, FontRole::Name).x;
@@ -138,7 +140,7 @@ bool OrderEntryList::Draw(
 		                             ? entry.folder.Value()
 		                             : std::format(text::order::LOCATION_FORMAT, snapshot.modsDirectory, entry.folder.Value());
 
-		design::ClippedText::Draw(ImVec2(rowTopLeft.x + 62.0f, leftY + 17.0f), leftWidth - 125.0f, location, tokens::SECONDARY_MUTED, 10.0f);
+		design::ClippedText::Draw(ImVec2(rowTopLeft.x + 62.0f, leftY + 17.0f), contentWidth - 125.0f, location, tokens::SECONDARY_MUTED, 10.0f);
 
 		if (index > 0) {
 			if (design::Button(
@@ -199,7 +201,7 @@ bool OrderEntryList::Draw(
 	}
 
 	if (insertionY.has_value()) {
-		ImGui::GetWindowDrawList()->AddLine(ImVec2(area.origin.x, *insertionY), ImVec2(rightX, *insertionY), tokens::ACCENT, 2.0f);
+		ImGui::GetWindowDrawList()->AddLine(ImVec2(area.origin.x, *insertionY), ImVec2(contentRight, *insertionY), tokens::ACCENT, 2.0f);
 	}
 	_bottom = leftY;
 

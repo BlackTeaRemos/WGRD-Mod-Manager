@@ -20,7 +20,7 @@ namespace {
 		bool highlighted = false;
 		const bool activated = design::RowHit(position, end, highlighted);
 		if (highlighted) {
-			design::FillRect(position, end, tokens::ACCENT_BUTTON_HOVER);
+			design::FillRect(position, end, tokens::ACCENT_HOVER);
 		}
 		const ImVec2 size = design::MeasureText(glyph, 11.0f, FontRole::Label);
 		design::TextAt(ImVec2(position.x + (width - size.x) * 0.5f, position.y + (tokens::TITLE_BAR_HEIGHT - size.y) * 0.5f),

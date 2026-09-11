@@ -33,7 +33,7 @@ CatalogRowAction CatalogRowView::Draw(const ScreenArea& area, const float top,
 	const bool wide = area.width >= 620.0f;
 	const bool expanded = area.width >= 1000.0f;
 	const float nameWidth = area.width - (expanded ? 520.0f : (wide ? 338.0f : 120.0f));
-	design::ClippedText::Draw(ImVec2(origin.x + 24.0f, top + 3.0f), nameWidth, row.modName, tokens::SECONDARY, 12.0f, FontRole::Name);
+	design::ClippedText::Draw(ImVec2(origin.x + 24.0f, top + 2.0f), nameWidth, row.modName, tokens::SECONDARY, 13.0f, FontRole::Body);
 	design::ClippedText::Draw(ImVec2(origin.x + 24.0f, top + 19.0f), nameWidth,
 		row.seedFault.empty() ? row.publisher : row.seedFault,
 		row.seedFault.empty() ? tokens::SECONDARY_MUTED : tokens::FAILURE, 10.0f);
