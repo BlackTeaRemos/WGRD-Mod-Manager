@@ -61,7 +61,7 @@ bool OrderEntryList::Draw(
 		ImGuiChildFlags_None,
 		ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_NoSavedSettings
 	);
-	float leftY = cursorY;
+	float leftY = ImGui::GetCursorScreenPos().y;
 
 	design::HeadingBar(
 		ImVec2(area.origin.x, leftY),
@@ -194,7 +194,7 @@ bool OrderEntryList::Draw(
 		ImGui::PopID();
 	}
 	if (apply) {
-		_bottom = leftY;
+		_bottom = leftY + ImGui::GetScrollY();
 		ImGui::EndChild();
 		ImGui::PopStyleVar();
 		return true;
@@ -203,7 +203,7 @@ bool OrderEntryList::Draw(
 	if (insertionY.has_value()) {
 		ImGui::GetWindowDrawList()->AddLine(ImVec2(area.origin.x, *insertionY), ImVec2(contentRight, *insertionY), tokens::ACCENT, 2.0f);
 	}
-	_bottom = leftY;
+	_bottom = leftY + ImGui::GetScrollY();
 
 	ImGui::EndChild();
 	ImGui::PopStyleVar();
