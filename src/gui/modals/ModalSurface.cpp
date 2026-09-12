@@ -18,7 +18,9 @@ bool ModalSurface::Begin(const char* title, bool* open, const float width) {
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
 	ImGui::PushFont(design::FontLibrary::For(FontRole::Heading), 13.0f);
 	ImGui::PushStyleColor(ImGuiCol_Text, tokens::PRIMARY);
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, tokens::ACCENT_HOVER);
 	const bool visible = ImGui::BeginPopupModal(title, open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
+	ImGui::PopStyleColor();
 	ImGui::PopStyleColor();
 	ImGui::PopFont();
 	if (!visible) {
