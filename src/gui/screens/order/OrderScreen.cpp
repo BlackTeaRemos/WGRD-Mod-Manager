@@ -230,7 +230,7 @@ void OrderScreen::Draw(const ScreenArea& area, const ApplicationServices& servic
 	const bool stacked = area.width < 900.0f;
 	const float rightX = area.origin.x + area.width * (stacked ? 1.0f : 0.6f);
 
-	if (_entries.Draw(area, cursorY, area.height - (cursorY - area.origin.y), rightX, snapshot, orderService, catalogService)) {
+	if (_entries.Draw(area, cursorY, area.height, rightX, snapshot, orderService, catalogService)) {
 		return;
 	}
 
