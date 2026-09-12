@@ -98,14 +98,14 @@ void CatalogService::Seed_(const domain::SignedAnnounce& announce, domain::Catal
 	}
 
 	const auto announceInfoHash = announce.torrentInfoHash.ToHex();
-	const auto seeded = std::ranges::find_if(
+	const auto existingSeed = std::ranges::find_if(
 		_seeding->Entries(),
 		[&announce](const domain::SeedEntry& seed) {
 			return seed.identifier == announce.Identifier();
 		}
 	);
 
-	if (seeded != _seeding->Entries().end() && seeded->infoHash != announceInfoHash) {
+	if (existingSeed != _seeding->Entries().end() && existingSeed->infoHash != announceInfoHash) {
 		const bool stopped = _seeding->StopSeeding(row.identifier);
 		(void)stopped;
 	}
