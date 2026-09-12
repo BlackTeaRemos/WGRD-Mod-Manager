@@ -65,5 +65,6 @@ constexpr float SHADOW_OFFSET = 4.0f;
 constexpr float TRANSFER_BAR_HEIGHT = 9.0f;
 constexpr float STRIPE_WIDTH = 2.0f;
 constexpr float STRIPE_PERIOD = 5.0f;
+constexpr ImU32 MODAL_DIM = FromHex(0x000000, 0.30f);
 constexpr ImU32 SHADOW = FromHex(0x000000, 0.90f);
 }
