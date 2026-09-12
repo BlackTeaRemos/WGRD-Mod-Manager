@@ -8,9 +8,42 @@
 #include "gui/design/text/ClippedText.h"
 
 #include <format>
+#include <cmath>
 #include <string>
 
 namespace wgrd::gui {
+namespace {
+constexpr double SUPPORT_CYCLE_SECONDS = 10.0;
+constexpr float SUPPORT_IDLE_FILL = 0.12f;
+constexpr float SUPPORT_HOVER_FILL = 0.20f;
+
+ImU32 BlendTone(const ImU32 from, const ImU32 to, const float amount) {
+	const ImVec4 start = ImGui::ColorConvertU32ToFloat4(from);
+	const ImVec4 finish = ImGui::ColorConvertU32ToFloat4(to);
+	return ImGui::ColorConvertFloat4ToU32(ImVec4(
+		start.x + (finish.x - start.x) * amount,
+		start.y + (finish.y - start.y) * amount,
+		start.z + (finish.z - start.z) * amount,
+		start.w + (finish.w - start.w) * amount
+	));
+}
+
+ImU32 FadeTone(const ImU32 tone, const float alpha) {
+	ImVec4 channels = ImGui::ColorConvertU32ToFloat4(tone);
+	channels.w = alpha;
+	return ImGui::ColorConvertFloat4ToU32(channels);
+}
+
+ImU32 SupportTone() {
+	const double cycle = ImGui::GetTime() / SUPPORT_CYCLE_SECONDS;
+	const float phase = static_cast<float>(cycle - std::floor(cycle));
+	if (phase < 0.5f) {
+		return BlendTone(tokens::SUPPORT_DARK, tokens::SUPPORT_AMBER, phase * 2.0f);
+	}
+	return BlendTone(tokens::SUPPORT_AMBER, tokens::SUPPORT_ORANGE, (phase - 0.5f) * 2.0f);
+}
+}
+
 float StatusBar::DrawManager_(const ImVec2 origin, float cursor, const bool detailed,
 	ApplicationState& state, const ApplicationServices& services) {
 	if (detailed) {
@@ -74,10 +107,23 @@ void StatusBar::Draw(const ImVec2 origin, const float width, ApplicationState& s
 	const bool detailed = width >= 1000.0f;
 	float cursor = DrawManager_(origin, origin.x + 6.0f, detailed, state, services);
 	cursor = DrawPatcher_(origin, cursor, detailed, services);
-	if (design::Button(ImVec2(cursor, origin.y + 1.0f), "Support", design::ButtonVariant::Accent, false, 6.0f)) {
+	const ImVec2 supportSize = design::ButtonSize("Support", 6.0f);
+	const ImVec2 supportTopLeft(cursor, origin.y + 1.0f);
+	const ImVec2 supportBottomRight(supportTopLeft.x + supportSize.x, supportTopLeft.y + supportSize.y);
+	bool supportHovered = false;
+	const bool supportClicked = design::RowHit(supportTopLeft, supportBottomRight, supportHovered);
+	const ImU32 supportTone = SupportTone();
+	design::FillRect(supportTopLeft, supportBottomRight,
+		FadeTone(supportTone, supportHovered ? SUPPORT_HOVER_FILL : SUPPORT_IDLE_FILL));
+	design::StrokeRect(supportTopLeft, supportBottomRight, supportTone);
+	const ImVec2 supportTextSize = design::MeasureText("Support", 10.0f, FontRole::Label);
+	design::TextAt(
+		ImVec2(supportTopLeft.x + 6.0f, supportTopLeft.y + (supportSize.y - supportTextSize.y) * 0.5f),
+		"Support", supportTone, 10.0f, FontRole::Label);
+	if (supportClicked) {
 		ImGui::OpenPopup("Support");
 	}
-	cursor += design::ButtonSize("Support", 6.0f).x + 8.0f;
+	cursor += supportSize.x + 8.0f;
 	_support.Draw(services);
 
 	std::string message;
