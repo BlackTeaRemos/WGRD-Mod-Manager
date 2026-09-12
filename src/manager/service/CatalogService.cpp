@@ -97,6 +97,19 @@ void CatalogService::Seed_(const domain::SignedAnnounce& announce, domain::Catal
 		return;
 	}
 
+	const auto announceInfoHash = announce.torrentInfoHash.ToHex();
+	const auto seeded = std::ranges::find_if(
+		_seeding->Entries(),
+		[&announce](const domain::SeedEntry& seed) {
+			return seed.identifier == announce.Identifier();
+		}
+	);
+
+	if (seeded != _seeding->Entries().end() && seeded->infoHash != announceInfoHash) {
+		const bool stopped = _seeding->StopSeeding(row.identifier);
+		(void)stopped;
+	}
+
 	const auto sealed = _store->Load(announce.manifestDigest.ToHex());
 	if (!sealed.has_value()) {
 		return;
