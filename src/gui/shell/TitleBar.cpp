@@ -51,7 +51,7 @@ void TitleBar::Draw(const ImVec2 origin, const float width, ApplicationState& st
 	cursor -= CONTROL_WIDTH;
 	const RECT maximize{static_cast<LONG>(cursor), static_cast<LONG>(origin.y),
 		static_cast<LONG>(cursor + CONTROL_WIDTH), static_cast<LONG>(origin.y + tokens::TITLE_BAR_HEIGHT)};
-	if (DrawControl(ImVec2(cursor, origin.y), CONTROL_WIDTH, window.Maximized() ? "\u25a3" : "\u25a1",
+	if (DrawControl(ImVec2(cursor, origin.y), CONTROL_WIDTH, window.Maximized() ? "][" : "[]",
 		window.Maximized() ? "Restore window" : "Maximize window")) {
 		window.ToggleMaximize();
 	}
