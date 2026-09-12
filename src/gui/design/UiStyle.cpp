@@ -63,6 +63,6 @@ void UiStyle::Apply() {
 	SetColor_(style, ImGuiCol_TextSelectedBg, tokens::ACCENT_ACTIVE_FILL);
 	SetColor_(style, ImGuiCol_NavCursor, tokens::ACCENT);
 	SetColor_(style, ImGuiCol_DragDropTarget, tokens::ACCENT);
-	SetColor_(style, ImGuiCol_ModalWindowDimBg, tokens::SHADOW);
+	SetColor_(style, ImGuiCol_ModalWindowDimBg, tokens::MODAL_DIM);
 }
 }
