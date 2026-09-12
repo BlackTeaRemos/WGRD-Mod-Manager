@@ -45,14 +45,17 @@ float OrderEditToolbar::Draw(const ScreenArea& area, const float top, const Appl
 	}
 	float bottom = top + 28.0f;
 	if (services.orderHistory != nullptr) {
-		design::ClippedText::Draw(ImVec2(area.origin.x + 6.0f, bottom), area.width - 120.0f,
-			services.orderHistory->LastMessage(), snapshot.writable ? tokens::SECONDARY_MUTED : tokens::FAILURE,
-			10.0f, FontRole::Body);
-		if (!snapshot.writable && design::Button(ImVec2(area.origin.x + area.width - 100.0f, bottom),
-			"Copy error", design::ButtonVariant::Neutral)) {
-			ImGui::SetClipboardText(std::string(services.orderHistory->LastMessage()).c_str());
+		const std::string_view message = services.orderHistory->LastMessage();
+		if (!message.empty()) {
+			design::ClippedText::Draw(ImVec2(area.origin.x + 6.0f, bottom), area.width - 120.0f,
+				message, snapshot.writable ? tokens::SECONDARY_MUTED : tokens::FAILURE,
+				10.0f, FontRole::Body);
+			if (!snapshot.writable && design::Button(ImVec2(area.origin.x + area.width - 100.0f, bottom),
+				"Copy error", design::ButtonVariant::Neutral)) {
+				ImGui::SetClipboardText(std::string(message).c_str());
+			}
+			bottom += 23.0f;
 		}
-		bottom += 23.0f;
 	}
 	if (!_notice.empty()) {
 		design::ClippedText::Draw(ImVec2(area.origin.x + 6.0f, bottom), area.width - 12.0f, _notice,
