@@ -7,6 +7,10 @@ wgrd_embed_font(INTER_SEMIBOLD "${CMAKE_CURRENT_SOURCE_DIR}/fonts/assets/Inter-S
 wgrd_embed_font(INTER_BOLD "${CMAKE_CURRENT_SOURCE_DIR}/fonts/assets/Inter-Bold.ttf.gz" "${CMAKE_BINARY_DIR}/generated/fonts/InterBold.h")
 wgrd_add_module(gui
     SOURCES
+        images/PngTextureDecoder.h
+        images/PngTextureDecoder.cpp
+        images/PreviewImages.h
+        images/PreviewImages.cpp
         state/KeyboardNavigation.h
         state/KeyboardNavigation.cpp
         screens/profiles/ProfileEditor.cpp
@@ -147,3 +151,4 @@ endif()
 target_include_directories(wgrd_gui PRIVATE "${CMAKE_BINARY_DIR}/generated")
 
 target_link_libraries(wgrd_gui PUBLIC imgui::imgui ZLIB::ZLIB d3d11 dxgi dwmapi ole32 shell32 uuid)
+target_link_libraries(wgrd_gui PRIVATE windowscodecs)

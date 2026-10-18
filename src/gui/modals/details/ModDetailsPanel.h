@@ -17,5 +17,6 @@ private:
 	std::string _shownIdentifier;
 	bool _retryInstall = false;
 	bool _verify = false;
+	bool _detailsRequested = false;
 };
 }

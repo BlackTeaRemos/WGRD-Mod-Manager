@@ -88,7 +88,8 @@ TEST_CASE("switching away keeps the live game profile with its own profile") {
 	const std::filesystem::path remote = tree.Root() / "userdata" / std::string(ACCOUNT);
 	const std::filesystem::path live = LivePath(remote);
 
-	WriteGameProfile(live, "default decks");
+	const std::string defaultBytes("default\0decks\x7Ftail", 18);
+	WriteGameProfile(live, defaultBytes);
 
 	std::vector<SteamAccount> accounts;
 	accounts.push_back(SteamAccount{std::string(ACCOUNT), remote, true});
@@ -102,16 +103,16 @@ TEST_CASE("switching away keeps the live game profile with its own profile") {
 	REQUIRE(profiles.CaptureCurrent("aicclassic").has_value());
 	REQUIRE(profiles.Activate("aicclassic").has_value());
 
-	WriteGameProfile(live, "mod decks");
+	const std::string modBytes("mod\0decks\x01tail", 14);
+	WriteGameProfile(live, modBytes);
 
 	REQUIRE(profiles.Activate(ProfileService::DEFAULT_NAME).has_value());
 
-	REQUIRE(ReadWhole(live).find("default decks") != std::string::npos);
+	REQUIRE(ReadWhole(live) == std::string(GameProfileVault::MAGIC) + defaultBytes);
 
 	REQUIRE(profiles.Activate("aicclassic").has_value());
 
-	INFO("live after returning " << ReadWhole(live));
-	REQUIRE(ReadWhole(live).find("mod decks") != std::string::npos);
+	REQUIRE(ReadWhole(live) == std::string(GameProfileVault::MAGIC) + modBytes);
 }
 
 TEST_CASE("switching without a live game profile still succeeds") {

@@ -1,6 +1,7 @@
 #include "downloader/tests/FetchTestSupport.h"
 
 #include "downloader/torrent/build/ChunkSetTorrentBuilder.h"
+#include "downloader/transfer/FetchState.h"
 
 #include "domain/types/content/ChunkDestination.h"
 #include "domain/types/content/ChunkFileNaming.h"
@@ -19,6 +20,7 @@ using wgrd::domain::FetchError;
 using wgrd::domain::FetchPhase;
 using wgrd::domain::ModManifest;
 using wgrd::downloader::ChunkSetTorrentBuilder;
+using wgrd::downloader::FetchState;
 using wgrd::downloader::TorrentSession;
 using wgrd::downloader::tests::AwaitPort;
 using wgrd::downloader::tests::BuildManifest;
@@ -28,6 +30,17 @@ using wgrd::downloader::tests::TemporaryTree;
 using wgrd::downloader::tests::WriteFilled;
 using wgrd::downloader::tests::WritePayload;
 using wgrd::downloader::tests::WriteSealed;
+
+TEST_CASE("retire without handle") {
+	FetchState state;
+
+	const auto retirement = state.Retire();
+
+	REQUIRE_FALSE(retirement.toRemove.has_value());
+	REQUIRE(retirement.clearNow);
+	REQUIRE_FALSE(state.Active().has_value());
+	REQUIRE_FALSE(state.AbandonPendingClear());
+}
 
 TEST_CASE("begin refuses an infohash already seeded") {
 	const TemporaryTree tree("begin-duplicate");

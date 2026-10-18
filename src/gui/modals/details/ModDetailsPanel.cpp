@@ -3,6 +3,7 @@
 #include "gui/design/FontLibrary.h"
 #include "gui/design/Tokens.h"
 #include "gui/feedback/InstallStartText.h"
+#include "gui/images/PreviewImages.h"
 #include "gui/modals/ModalSection.h"
 #include "gui/screens/ScreenToolbar.h"
 
@@ -30,6 +31,7 @@ void ModDetailsPanel::Draw(ApplicationState& state, const ApplicationServices& s
 		_shownIdentifier = state.DetailTarget();
 		_notice.clear();
 		_retryInstall = false;
+		_detailsRequested = false;
 	}
 	const domain::CatalogRow* row = nullptr;
 	if (services.catalog != nullptr) {
@@ -48,6 +50,41 @@ void ModDetailsPanel::Draw(ApplicationState& state, const ApplicationServices& s
 		ImGui::TextUnformatted(row->modName.c_str());
 		ImGui::PopFont();
 		ImGui::TextUnformatted(std::format("Version {}", row->version).c_str());
+		ModalSection::Draw("Description");
+		if (row->manifestHeld) {
+			ImGui::TextWrapped("%s", row->description.empty() ? "No description provided" : row->description.c_str());
+			if (row->preview && !row->preview->image.empty() && !row->revoked) {
+				const ImVec2 imageSize(std::max(1.0f, ImGui::GetContentRegionAvail().x), 240.0f);
+				if (PreviewImages::Draw(row->manifestDigest, row->preview->image, ImGui::GetCursorScreenPos(), imageSize, false)) {
+					ImGui::Dummy(imageSize);
+				} else {
+					ImGui::TextUnformatted("Preview unavailable");
+				}
+			}
+		} else if (services.install != nullptr && !row->revoked) {
+			const auto progress = services.install->Progress();
+			if (!_detailsRequested && !progress.Busy()) {
+				const auto requested = services.install->FetchDetails(row->identifier);
+				_detailsRequested = true;
+				_notice = requested.has_value() ? "" : std::string(InstallStartText::Describe(requested.error()));
+			}
+			ImGui::TextUnformatted(progress.Busy() ? "Loading details" : "Description pending");
+			if (progress.identifier == row->identifier && progress.phase == domain::InstallPhase::Failed) {
+				ImGui::TextWrapped("%s", progress.message.c_str());
+			}
+			ImGui::BeginDisabled(services.install->Progress().Busy());
+			if (ImGui::Button("Retry details")) {
+				_detailsRequested = false;
+			}
+			ImGui::EndDisabled();
+			if (_detailsRequested && progress.Busy() && progress.identifier == row->identifier) {
+				if (ImGui::Button("Cancel details")) {
+					services.install->Cancel();
+				}
+			}
+		} else {
+			ImGui::TextUnformatted("Description unavailable");
+		}
 		if (row->manifestHeld) {
 			ImGui::TextUnformatted(ScreenToolbar::FormatBytes(row->totalBytes).c_str());
 			ImGui::TextUnformatted(std::format("{} files", row->fileCount).c_str());
@@ -75,7 +112,7 @@ void ModDetailsPanel::Draw(ApplicationState& state, const ApplicationServices& s
 			}
 		}
 		ModalSection::Draw("Verification");
-		ImGui::TextUnformatted(row->revoked ? "Publisher key revoked" : (row->manifestHeld ? "Manifest verified" : "Manifest retrieved on install"));
+		ImGui::TextUnformatted(row->revoked ? "Publisher key revoked" : (row->manifestHeld ? "Manifest verified" : "Manifest not retrieved"));
 		if (services.install != nullptr) {
 			const bool enabled = !services.install->Progress().Busy() && !row->revoked;
 			ImGui::BeginDisabled(!enabled);

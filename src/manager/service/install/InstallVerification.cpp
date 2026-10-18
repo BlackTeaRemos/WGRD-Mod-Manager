@@ -25,6 +25,10 @@ std::expected<void, domain::InstallStartError> InstallService::Verify(const std:
 	}
 
 	const auto decoded = DecodeStoredManifest_(announce->manifestDigest.ToHex());
+	const auto ownership = CheckName_(*announce);
+	if (!ownership.has_value()) {
+		return std::unexpected(ownership.error());
+	}
 	if (!decoded.has_value()) {
 		return std::unexpected(decoded.error());
 	}
@@ -35,6 +39,7 @@ std::expected<void, domain::InstallStartError> InstallService::Verify(const std:
 	}
 
 	JoinWorker_();
+	_detailsOnly = false;
 
 	{
 		const std::scoped_lock lock(_guard);

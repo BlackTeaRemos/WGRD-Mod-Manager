@@ -19,6 +19,10 @@ public:
 				return "Manifest verification failed";
 			case domain::InstallStartError::NothingToDo:
 				return "Already current";
+			case domain::InstallStartError::NameConflict:
+				return "Mod name already used";
+			case domain::InstallStartError::FolderOwnershipUnknown:
+				return "Folder ownership unknown";
 		}
 		return "Install could not start";
 	}

@@ -4,12 +4,13 @@
 #include "gui/design/Tokens.h"
 #include "gui/design/text/ClippedText.h"
 #include "gui/screens/ScreenToolbar.h"
+#include "gui/images/PreviewImages.h"
 
 #include <format>
 
 namespace wgrd::gui {
 void CatalogRowView::Header(const ScreenArea& area, const float top) {
-	design::TextAt(ImVec2(area.origin.x + 24.0f, top), "MOD", tokens::SECONDARY_MUTED, 9.0f);
+	design::TextAt(ImVec2(area.origin.x + 56.0f, top), "MOD", tokens::SECONDARY_MUTED, 9.0f);
 	if (area.width >= 620.0f) {
 		design::TextAt(ImVec2(area.origin.x + area.width - 300.0f, top), "VERSION", tokens::SECONDARY_MUTED, 9.0f);
 		design::TextAt(ImVec2(area.origin.x + area.width - 220.0f, top), "SIZE", tokens::SECONDARY_MUTED, 9.0f);
@@ -32,9 +33,14 @@ CatalogRowAction CatalogRowView::Draw(const ScreenArea& area, const float top,
 
 	const bool wide = area.width >= 620.0f;
 	const bool expanded = area.width >= 1000.0f;
-	const float nameWidth = area.width - (expanded ? 520.0f : (wide ? 338.0f : 120.0f));
-	design::ClippedText::Draw(ImVec2(origin.x + 24.0f, top + 2.0f), nameWidth, row.modName, tokens::SECONDARY, 13.0f, FontRole::Body);
-	design::ClippedText::Draw(ImVec2(origin.x + 24.0f, top + 19.0f), nameWidth,
+	if (row.preview && !row.revoked && ImGui::IsRectVisible(origin, end)) {
+		const bool drawn = PreviewImages::Draw(row.manifestDigest, row.preview->thumbnail,
+			ImVec2(origin.x + 22.0f, top + 2.0f), ImVec2(28.0f, 28.0f), true);
+		(void)drawn;
+	}
+	const float nameWidth = area.width - (expanded ? 552.0f : (wide ? 370.0f : 152.0f));
+	design::ClippedText::Draw(ImVec2(origin.x + 56.0f, top + 2.0f), nameWidth, row.modName, tokens::SECONDARY, 13.0f, FontRole::Body);
+	design::ClippedText::Draw(ImVec2(origin.x + 56.0f, top + 19.0f), nameWidth,
 		row.seedFault.empty() ? row.publisher : row.seedFault,
 		row.seedFault.empty() ? tokens::SECONDARY_MUTED : tokens::FAILURE, 10.0f);
 	if (wide) {

@@ -1,4 +1,5 @@
 #include "manager/install/FetchedManifestAdopter.h"
+#include "domain/types/distribution/TransportLimits.h"
 
 #include <cstddef>
 #include <fstream>
@@ -21,18 +22,18 @@ std::optional<domain::ModManifest> FetchedManifestAdopter::Adopt(
 	const domain::SignedAnnounce& announce,
 	const std::filesystem::path& stagedManifest
 ) const {
-	std::ifstream input(stagedManifest, std::ios::binary);
+	std::ifstream input(stagedManifest, std::ios::binary | std::ios::ate);
 	if (!input) {
 		return std::nullopt;
 	}
 
-	std::vector<std::uint8_t> sealed;
-	sealed.assign(
-		std::istreambuf_iterator<char>(input),
-		std::istreambuf_iterator<char>()
-	);
-
-	if (sealed.empty()) {
+	const auto size = input.tellg();
+	if (size <= 0 || size > static_cast<std::streamoff>(domain::limits::MANIFEST_ENVELOPE_BYTES)) {
+		return std::nullopt;
+	}
+	std::vector<std::uint8_t> sealed(static_cast<std::size_t>(size));
+	input.seekg(0);
+	if (!input.read(reinterpret_cast<char*>(sealed.data()), static_cast<std::streamsize>(sealed.size()))) {
 		return std::nullopt;
 	}
 

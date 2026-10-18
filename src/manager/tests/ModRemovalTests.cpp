@@ -14,6 +14,9 @@
 
 using wgrd::domain::AnnounceSummary;
 using wgrd::domain::IAnnounceCatalogue;
+using wgrd::domain::IInstallService;
+using wgrd::domain::InstallProgress;
+using wgrd::domain::InstallStartError;
 using wgrd::domain::InstalledRelease;
 using wgrd::domain::PublisherFingerprint;
 using wgrd::domain::RemovalError;
@@ -65,6 +68,45 @@ public:
 		std::uint64_t
 	) const override {
 		return true;
+	}
+};
+
+class BusyInstall final : public IInstallService {
+public:
+	~BusyInstall() override = default;
+
+	std::expected<void, InstallStartError> FetchDetails(std::string_view) override {
+		return std::unexpected(InstallStartError::Busy);
+	}
+
+	std::expected<void, InstallStartError> Start(std::string_view) override {
+		return {};
+	}
+
+	std::expected<void, InstallStartError> Verify(std::string_view) override {
+		return {};
+	}
+	InstallProgress Progress() const override {
+		InstallProgress progress;
+		progress.phase = wgrd::domain::InstallPhase::Installing;
+		return progress;
+	}
+	std::uint64_t CompletedInstalls() const override {
+		return 0;
+	}
+
+	std::uint64_t RequestedDownloads() const override {
+		return 0;
+	}
+
+	std::uint64_t SettledAttempts() const override {
+		return 0;
+	}
+
+	void Poll() override {
+	}
+
+	void Cancel() override {
 	}
 };
 
@@ -274,4 +316,33 @@ TEST_CASE("removal refuses a mod name that escapes the mods folder") {
 
 	REQUIRE_FALSE(refused.has_value());
 	REQUIRE(std::filesystem::is_directory(tree.Root() / "outside"));
+}
+
+TEST_CASE("T15 busy removal preserves state") {
+	const TemporaryTree tree("busy");
+	const auto installation = MakeInstallation(tree.Root());
+	WriteModFolder(installation.modsDirectory, "angel_maps");
+
+	const InstalledReleaseStore store(tree.Root() / "installed");
+	const InstalledRelease record = MakeRecord("angel_maps");
+	REQUIRE(store.Save(record));
+
+	const EmptyCatalogue catalogue;
+	wgrd::manager::OrderService order(installation);
+	const BusyInstall install;
+	ModRemovalService removal(
+		installation.modsDirectory,
+		store,
+		catalogue,
+		&order,
+		nullptr,
+		&install
+	);
+
+	const auto refused = removal.Remove(record.identifier);
+
+	REQUIRE_FALSE(refused.has_value());
+	REQUIRE(refused.error() == RemovalError::Busy);
+	REQUIRE(std::filesystem::is_directory(installation.modsDirectory / "angel_maps"));
+	REQUIRE(store.Find(record.identifier).has_value());
 }

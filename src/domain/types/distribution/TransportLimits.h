@@ -5,6 +5,9 @@
 namespace wgrd::domain::limits {
 inline constexpr std::size_t ANNOUNCE_RECORD_BYTES = 256;
 inline constexpr std::size_t MANIFEST_ENVELOPE_BYTES = 2 * 1024 * 1024;
+inline constexpr std::size_t DESCRIPTION_BYTES = 4096;
+inline constexpr std::size_t THUMBNAIL_BYTES = 64 * 1024;
+inline constexpr std::size_t PREVIEW_IMAGE_BYTES = 384 * 1024;
 inline constexpr std::size_t MANIFEST_CHUNK_COUNT = 16384;
 inline constexpr std::uint64_t MANIFEST_CHUNK_LENGTH_BYTES = 16 * 1024 * 1024;
 inline constexpr std::uint64_t MANIFEST_FILE_BYTES = 64ull * 1024 * 1024 * 1024;

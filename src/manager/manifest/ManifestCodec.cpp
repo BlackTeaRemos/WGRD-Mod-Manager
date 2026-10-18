@@ -1,4 +1,5 @@
 #include "manager/manifest/ManifestCodec.h"
+#include "manager/preview/PreviewImageCodec.h"
 
 #include "domain/types/distribution/TransportLimits.h"
 
@@ -32,6 +33,11 @@ std::vector<std::uint8_t> ManifestCodec::Encode(const domain::ModManifest& manif
 	document[std::string(FIELD_PUBLISHER)] = manifest.Publisher().ToHex();
 	document[std::string(FIELD_MOD)] = manifest.ModName();
 	document[std::string(FIELD_VERSION)] = manifest.Version();
+	document["description"] = manifest.Description();
+	if (const auto preview = manifest.Preview()) {
+		document["thumbnail"] = PreviewImageCodec::Encode(preview->thumbnail);
+		document["preview"] = PreviewImageCodec::Encode(preview->image);
+	}
 
 	Json files = Json::array();
 	for (const domain::ManifestFile& file : manifest.Files()) {
@@ -107,6 +113,36 @@ std::expected<domain::ModManifest, domain::ManifestDecodeError> ManifestCodec::D
 	}
 
 	const auto publisher = domain::PublisherFingerprint::FromHex(publisherField.get<std::string>());
+	std::string description;
+	std::shared_ptr<domain::ModPreview> preview;
+	for (const std::string_view field : {"thumbnail", "preview"}) {
+		if (!document.contains(field)) {
+			continue;
+		}
+		if (!document.at(field).is_string()) {
+			return std::unexpected(domain::ManifestDecodeError::FieldWrongType);
+		}
+		const std::size_t limit = field == "thumbnail" ? domain::limits::THUMBNAIL_BYTES : domain::limits::PREVIEW_IMAGE_BYTES;
+		auto bytes = PreviewImageCodec::Decode(document.at(field).get_ref<const std::string&>(), limit);
+		if (!bytes) {
+			return std::unexpected(domain::ManifestDecodeError::Malformed);
+		}
+		if (!preview) {
+			preview = std::make_shared<domain::ModPreview>();
+		}
+		(field == "thumbnail" ? preview->thumbnail : preview->image) = std::move(*bytes);
+	}
+	if (document.contains("description")) {
+		const auto& descriptionField = document.at("description");
+		if (!descriptionField.is_string()) {
+			return std::unexpected(domain::ManifestDecodeError::FieldWrongType);
+		}
+		const auto& value = descriptionField.get_ref<const std::string&>();
+		if (value.size() > domain::limits::DESCRIPTION_BYTES || value.find('\0') != std::string::npos) {
+			return std::unexpected(domain::ManifestDecodeError::Malformed);
+		}
+		description = value;
+	}
 	if (!publisher.has_value()) {
 		return std::unexpected(domain::ManifestDecodeError::PublisherRejected);
 	}
@@ -208,7 +244,9 @@ std::expected<domain::ModManifest, domain::ManifestDecodeError> ManifestCodec::D
 		*publisher,
 		modField.get<std::string>(),
 		versionField.get<std::uint64_t>(),
-		std::move(files)
+		std::move(files),
+		std::move(description),
+		std::move(preview)
 	);
 }
 }

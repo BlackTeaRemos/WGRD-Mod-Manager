@@ -1,6 +1,7 @@
 #include "gui/Application.h"
 
 #include "gui/design/FontLibrary.h"
+#include "gui/images/PreviewImages.h"
 #include "gui/design/Primitives.h"
 #include "gui/design/Tokens.h"
 #include "gui/design/UiStyle.h"
@@ -22,6 +23,7 @@ Application::~Application() {
 	}
 
 	if (_started) {
+		PreviewImages::Clear();
 		_dpi.Shutdown();
 		ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
@@ -69,6 +71,7 @@ bool Application::Start(const ApplicationServices& services) {
 
 	_dpi.Initialize();
 	_started = true;
+	PreviewImages::Initialize();
 
 	_backend = RenderBackendProbe::Select(_window.Handle());
 	if (_backend == nullptr) {
@@ -145,6 +148,7 @@ void Application::RenderFrame_() {
 	KeyboardNavigation::Apply(_state);
 	DrawFrame_();
 	ImGui::Render();
+	PreviewImages::RegisterTextures();
 	_backend->Present(ImGui::GetDrawData());
 	_drawing = false;
 }

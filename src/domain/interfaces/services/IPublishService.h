@@ -20,6 +20,7 @@ enum class PublishError {
 	, PassphraseTooShort
 	, PublisherNameRejected
 	, FolderRejected
+	, NameConflict
 	, ManifestBuildFailed
 	, SignFailed
 	, AnnounceFailed

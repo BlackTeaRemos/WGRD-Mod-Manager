@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <tuple>
 #include <vector>
 
 using wgrd::domain::ChunkSizes;
@@ -156,5 +157,57 @@ TEST_CASE("appended data keeps prefix") {
 	REQUIRE(originalSpans.size() > 2);
 	for (std::size_t index = 0; index + 1 < originalSpans.size(); ++index) {
 		REQUIRE(originalSpans[index] == extendedSpans[index]);
+	}
+}
+
+TEST_CASE("T27 bounded buffers reconstruct") {
+	const FastCdcChunker chunker(TestSizes());
+	const std::vector<std::vector<std::byte>> samples{
+		{},
+		{std::byte{0x41}},
+		std::vector<std::byte>(TEST_MINIMUM, std::byte{0x22}),
+		std::vector<std::byte>(TEST_AVERAGE, std::byte{0x22}),
+		std::vector<std::byte>(TEST_MAXIMUM, std::byte{0x22}),
+		MakeSample(TEST_MAXIMUM + 257, 27)
+	};
+
+	for (const std::vector<std::byte>& data : samples) {
+		const std::vector<ChunkSpan> spans = chunker.Split(data);
+		std::size_t expectedOffset = 0;
+		std::vector<std::byte> reconstructed;
+		reconstructed.reserve(data.size());
+
+		for (const ChunkSpan& span : spans) {
+			REQUIRE(span.offset == expectedOffset);
+			REQUIRE(span.length > 0);
+			REQUIRE(span.offset + span.length <= data.size());
+			const std::vector<std::byte> content = ContentOf(data, span);
+			reconstructed.insert(reconstructed.end(), content.begin(), content.end());
+			expectedOffset += span.length;
+		}
+
+		REQUIRE(expectedOffset == data.size());
+		REQUIRE(reconstructed == data);
+	}
+}
+
+TEST_CASE("T27 legal size boundaries") {
+	const std::vector<std::byte> data = MakeSample(TEST_MAXIMUM * 2 + 1, 28);
+	const std::vector<std::tuple<std::size_t, std::size_t, std::size_t>> settings{
+		{512, 1024, 2048},
+		{1024, 2048, 4096},
+		{2048, 4096, 8192}
+	};
+
+	for (const auto& [minimum, average, maximum] : settings) {
+		const auto sizes = ChunkSizes::Create(minimum, average, maximum);
+		REQUIRE(sizes.has_value());
+		const FastCdcChunker chunker(*sizes);
+		const std::vector<ChunkSpan> spans = chunker.Split(data);
+
+		for (std::size_t index = 0; index + 1 < spans.size(); ++index) {
+			REQUIRE(spans[index].length >= minimum);
+			REQUIRE(spans[index].length <= maximum);
+		}
 	}
 }

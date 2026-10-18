@@ -17,6 +17,7 @@
 #include "manager/manifest/ManifestStore.h"
 
 #include <atomic>
+#include <chrono>
 #include <expected>
 #include <filesystem>
 #include <mutex>
@@ -49,6 +50,7 @@ public:
 	InstallService& operator=(const InstallService&) = delete;
 
 	~InstallService() override;
+	[[nodiscard]] std::expected<void, domain::InstallStartError> FetchDetails(std::string_view identifier) override;
 
 	[[nodiscard]] std::expected<void, domain::InstallStartError> Start(
 		std::string_view identifier
@@ -61,6 +63,7 @@ public:
 	[[nodiscard]] domain::InstallProgress Progress() const override;
 
 	[[nodiscard]] std::uint64_t CompletedInstalls() const override;
+	[[nodiscard]] std::uint64_t RequestedDownloads() const override;
 
 	[[nodiscard]] std::uint64_t SettledAttempts() const override;
 
@@ -69,6 +72,11 @@ public:
 	void Cancel() override;
 
 private:
+	[[nodiscard]] std::expected<void, domain::InstallStartError> Start_(std::string_view identifier, bool detailsOnly);
+	bool _detailsOnly = false;
+	std::chrono::steady_clock::time_point _detailsDeadline{};
+	[[nodiscard]] std::expected<void, domain::InstallStartError> CheckName_(const domain::SignedAnnounce& announce) const;
+
 	void JoinWorker_();
 
 	void RunPlan_();
@@ -126,6 +134,7 @@ private:
 	std::atomic<bool> _busy;
 	std::atomic<bool> _abandoned;
 	std::atomic<std::uint64_t> _completed;
+	std::atomic<std::uint64_t> _requestedDownloads{0};
 	std::atomic<std::uint64_t> _settled;
 };
 }

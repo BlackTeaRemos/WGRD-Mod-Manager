@@ -1,6 +1,9 @@
 ﻿wgrd_add_tests(downloader
     SOURCES
         AnnounceExchangeTests.cpp
+        AnnounceWireBoundaryTests.cpp
+        OutstandingWantTrackerTests.cpp
+        ChunkRangeIoTests.cpp
         ChannelReserveTests.cpp
         ControlSwarmTests.cpp
         GossipTests.cpp

@@ -17,7 +17,11 @@ std::string ModMetadataReader::Field_(const void* document, const std::string_vi
 
 	std::string value = parsed.at(name).get<std::string>();
 	if (value.size() > FIELD_LIMIT) {
-		value.resize(FIELD_LIMIT);
+		std::size_t boundary = FIELD_LIMIT;
+		while (boundary > 0 && (static_cast<unsigned char>(value[boundary]) & 0xC0) == 0x80) {
+			--boundary;
+		}
+		value.resize(boundary);
 	}
 
 	return value;

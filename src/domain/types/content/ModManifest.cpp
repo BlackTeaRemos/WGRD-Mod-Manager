@@ -13,10 +13,14 @@ ModManifest::ModManifest(
 	const PublisherFingerprint publisher,
 	std::string modName,
 	const std::uint64_t version,
-	std::vector<ManifestFile> files
+	std::vector<ManifestFile> files,
+	std::string description,
+	std::shared_ptr<const ModPreview> preview
 )
 	: _publisher(publisher)
 	, _modName(std::move(modName))
+	, _description(std::move(description))
+	, _preview(std::move(preview))
 	, _version(version)
 	, _files(std::move(files)) {}
 
@@ -30,6 +34,22 @@ const std::string& ModManifest::ModName() const noexcept {
 
 std::uint64_t ModManifest::Version() const noexcept {
 	return _version;
+}
+
+const std::string& ModManifest::Description() const noexcept {
+	return _description;
+}
+
+std::shared_ptr<const ModPreview> ModManifest::Preview() const noexcept {
+	return _preview;
+}
+
+bool ModManifest::operator==(const ModManifest& other) const {
+	const bool samePreview = (!_preview && !other._preview)
+		|| (_preview && other._preview && *_preview == *other._preview);
+	return _publisher == other._publisher && _modName == other._modName
+		&& _description == other._description && _version == other._version
+		&& _files == other._files && samePreview;
 }
 
 const std::vector<ManifestFile>& ModManifest::Files() const noexcept {

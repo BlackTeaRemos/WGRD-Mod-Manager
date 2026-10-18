@@ -11,6 +11,7 @@ constexpr std::string_view LISTENER = "LISTENER";
 constexpr std::string_view GOSSIP = "ANNOUNCE GOSSIP";
 constexpr std::string_view SEEDING = "SEEDING";
 constexpr std::string_view DOWNLOADS = "DOWNLOADS";
+constexpr std::string_view SESSION_DOWNLOADS = "Session download requests {}";
 
 constexpr std::string_view OFFLINE = "offline";
 constexpr std::string_view DHT_RUNNING = "dht running";

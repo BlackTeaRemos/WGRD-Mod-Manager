@@ -58,3 +58,20 @@ TEST_CASE("screens render across sizes") {
 	fixture.Draw(500.0f, 420.0f, state);
 	REQUIRE(state.ActiveScreen() == Screen::Order);
 }
+
+TEST_CASE("text input blocks navigation") {
+	using namespace wgrd::gui;
+	tests::ScreenRenderFixture fixture;
+	REQUIRE(fixture.Ready());
+	ApplicationState state;
+	ImGuiIO& input = ImGui::GetIO();
+	input.WantTextInput = true;
+	input.AddKeyEvent(ImGuiMod_Ctrl, true);
+	input.AddKeyEvent(ImGuiKey_1, true);
+	fixture.Draw(500.0f, 420.0f, state);
+	REQUIRE(state.ActiveScreen() == Screen::Catalog);
+	input.AddKeyEvent(ImGuiKey_1, false);
+	input.AddKeyEvent(ImGuiMod_Ctrl, false);
+	input.WantTextInput = false;
+	fixture.Draw(500.0f, 420.0f, state);
+}

@@ -13,11 +13,14 @@ enum class InstallStartError {
 	, ManifestMissing
 	, ManifestRejected
 	, NothingToDo
+	, NameConflict
+	, FolderOwnershipUnknown
 };
 
 class IInstallService {
 public:
 	virtual ~IInstallService() = 0;
+	[[nodiscard]] virtual std::expected<void, InstallStartError> FetchDetails(std::string_view identifier) = 0;
 
 	[[nodiscard]] virtual std::expected<void, InstallStartError> Start(
 		std::string_view identifier
@@ -30,6 +33,7 @@ public:
 	[[nodiscard]] virtual InstallProgress Progress() const = 0;
 
 	[[nodiscard]] virtual std::uint64_t CompletedInstalls() const = 0;
+	[[nodiscard]] virtual std::uint64_t RequestedDownloads() const = 0;
 
 	[[nodiscard]] virtual std::uint64_t SettledAttempts() const = 0;
 

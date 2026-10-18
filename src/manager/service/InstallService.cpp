@@ -108,6 +108,10 @@ std::uint64_t InstallService::CompletedInstalls() const {
 	return _completed.load();
 }
 
+std::uint64_t InstallService::RequestedDownloads() const {
+	return _requestedDownloads.load();
+}
+
 std::uint64_t InstallService::SettledAttempts() const {
 	return _settled.load();
 }
@@ -162,6 +166,10 @@ void InstallService::StartFetch_(
 	const domain::ModManifest& target,
 	const domain::InstallPlan& plan
 ) {
+	if (!CheckName_(_announce).has_value()) {
+		Conclude_(domain::InstallPhase::Failed, "Mod folder ownership conflict");
+		return;
+	}
 	const std::filesystem::path modFolder = _modsDirectory / target.ModName();
 
 	WithdrawSeed_(target.Identifier());

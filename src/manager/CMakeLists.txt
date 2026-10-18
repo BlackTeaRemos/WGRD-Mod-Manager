@@ -4,6 +4,13 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 wgrd_add_module(manager
     SOURCES
+        preview/PreviewImageCodec.h
+        preview/PreviewImageCodec.cpp
+        preview/PreviewImageReader.h
+        preview/PreviewImageReader.cpp
+        identity/ModNameOwnership.h
+        service/install/InstallNameOwnership.cpp
+        service/publish/PublishRelease.cpp
         service/install/InstallVerification.cpp
         service/install/InstallManifestWorkflow.cpp
         service/install/InstallLifecycle.cpp

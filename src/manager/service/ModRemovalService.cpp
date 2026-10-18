@@ -1,6 +1,7 @@
 ﻿#include "manager/service/ModRemovalService.h"
 
 #include "domain/types/order/InstallFolder.h"
+#include "manager/identity/ModNameOwnership.h"
 #include "manager/text/ServiceText.h"
 
 #include <algorithm>
@@ -89,6 +90,10 @@ std::expected<void, domain::RemovalError> ModRemovalService::Remove(const std::s
 	}
 
 	const std::filesystem::path folder = _modsDirectory / *modName;
+	if (ModNameOwnership::Conflicts(*modName, identifier, *_catalogue, _installed)) {
+		_message = "Mod name already used";
+		return std::unexpected(domain::RemovalError::FolderRejected);
+	}
 
 	if (!WithinModsDirectory_(folder)) {
 		_message = text::REMOVAL_OUTSIDE;

@@ -42,6 +42,22 @@ Drop `wgrd-mod-manager.exe` into your Wargame: Red Dragon folder, beside `WarGam
 
 Your key file stays on your machine.
 
+### Publisher inputs
+
+Files beside mod.json
+
+| File | Content | Limit |
+|---|---|---|
+| mod.json | description field | 4096 UTF8 bytes |
+| thumbnail.png | Catalog thumbnail | 64 KiB |
+| preview.png | Details image | 384 KiB |
+
+Images are optional
+
+PNG only
+
+Maximum dimensions 2048x2048
+
 ## Building
 
 C++26, MSVC, CMake, Ninja, vcpkg.

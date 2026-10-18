@@ -139,3 +139,33 @@ TEST_CASE("stamp store round trips and rejects bad keys") {
 
 	REQUIRE_FALSE(store.Load(KEY).has_value());
 }
+
+TEST_CASE("T25 stale stamp mismatches") {
+	const TemporaryTree tree("stale-stamp");
+	const ModManifest manifest = BuildManifest();
+	const std::filesystem::path modFolder = tree.Root() / "mod";
+	const std::filesystem::path payload = modFolder / "packs" / "ZZ_Win.dat";
+	WriteFile(payload, 0x11);
+
+	const SeedStampStore store(tree.Root() / "torrents");
+	const std::string saved = ModFolderStamp::Compute(manifest, modFolder);
+	REQUIRE(store.Save(KEY, saved));
+	const auto loaded = store.Load(KEY);
+	REQUIRE(loaded.has_value());
+	REQUIRE(*loaded == saved);
+
+	const std::filesystem::file_time_type written = std::filesystem::last_write_time(payload);
+	std::filesystem::last_write_time(payload, written + std::chrono::seconds(5));
+
+	REQUIRE(ModFolderStamp::Compute(manifest, modFolder) != *loaded);
+}
+
+TEST_CASE("T25 identity keys remain separate") {
+	const TemporaryTree tree("identity-keys");
+	const SeedStampStore store(tree.Root() / "torrents");
+
+	REQUIRE(store.Save(KEY, "first"));
+	REQUIRE(store.Save("51915f87e6293ae5", "second"));
+	REQUIRE(store.Load(KEY) == std::optional<std::string>("first"));
+	REQUIRE(store.Load("51915f87e6293ae5") == std::optional<std::string>("second"));
+}

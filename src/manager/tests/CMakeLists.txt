@@ -7,8 +7,12 @@ wgrd_add_tests(manager
         OrderFileGatewayTests.cpp
         OrderInspectorTests.cpp
         ManifestEnvelopeTests.cpp
+        ManifestCodecSchemaTests.cpp
+        ManifestCodecLimitTests.cpp
         PublishSigningTests.cpp
         RevocationCertificateTests.cpp
+        RevocationReloadTests.cpp
+        ContentInstallerFailureTests.cpp
         BoundedLineReaderTests.cpp
         GameProfileTests.cpp
         GameLocatorTests.cpp
@@ -16,6 +20,7 @@ wgrd_add_tests(manager
         PatcherTests.cpp
         PayloadPathPolicyTests.cpp
         ManifestPipelineTests.cpp
+        TemporaryTreeTests.cpp
         UpdateRoundTripTests.cpp
         AnnounceTests.cpp
         ProfileSwitchTests.cpp

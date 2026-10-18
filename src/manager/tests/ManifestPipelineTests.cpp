@@ -10,6 +10,7 @@
 #include "manager/trust/KeyRegistry.h"
 #include "manager/trust/ManifestAuthenticator.h"
 #include "manager/trust/RevocationSignable.h"
+#include "../../../tests/support/TemporaryTree.h"
 
 #include "domain/interfaces/content/IContentChunker.h"
 #include "domain/types/content/ChunkSizes.h"
@@ -44,6 +45,8 @@ using wgrd::manager::RevocationSignable;
 using wgrd::manager::SigningKeyStore;
 
 namespace {
+using wgrd::tests::TemporaryTree;
+
 class FixedSizeChunker final : public IContentChunker {
 public:
 	explicit FixedSizeChunker(const std::size_t chunkLength)
@@ -69,40 +72,6 @@ private:
 };
 
 
-class TemporaryTree {
-public:
-	explicit TemporaryTree(const std::string_view label) {
-		_root = std::filesystem::temp_directory_path() / "wgrd-pipeline" / label;
-
-		std::error_code failure;
-		std::filesystem::remove_all(_root, failure);
-		std::filesystem::create_directories(_root, failure);
-	}
-
-	~TemporaryTree() {
-		std::error_code failure;
-		std::filesystem::remove_all(_root, failure);
-	}
-
-	[[nodiscard]] const std::filesystem::path& Root() const {
-		return _root;
-	}
-
-	void WriteFile(const std::string_view relativePath, const std::size_t length, const std::uint8_t seed) const {
-		const std::filesystem::path target = _root / relativePath;
-
-		std::error_code failure;
-		std::filesystem::create_directories(target.parent_path(), failure);
-
-		std::ofstream output(target, std::ios::binary | std::ios::trunc);
-		for (std::size_t position = 0; position < length; ++position) {
-			output.put(static_cast<char>((position + seed) & 0xFF));
-		}
-	}
-
-private:
-	std::filesystem::path _root;
-};
 }
 
 TEST_CASE("builder describes a real pack layout") {

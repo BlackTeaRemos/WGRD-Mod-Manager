@@ -46,6 +46,7 @@ float CatalogScreen::DrawControls_(const ScreenArea& area, float top, Applicatio
 			gossip->RequestGossipRefresh();
 		}
 		catalog.Refresh();
+		_previewRequests.clear();
 	}
 	top += 26.0f;
 	design::TextAt(ImVec2(area.origin.x + 6.0f, top), "Search mods", tokens::SECONDARY_MUTED, 9.0f);
@@ -162,6 +163,15 @@ void CatalogScreen::Draw(const ScreenArea& area, ApplicationState& state, domain
 
 	const auto rows = CatalogQuery::Select(catalog->Rows(), _search.data(), state.CatalogFilter(), _sort);
 	for (const domain::CatalogRow* row : rows) {
+		const std::string previewIdentity = row->identifier + "/" + std::to_string(row->version);
+		if (install != nullptr && !row->manifestHeld && !row->revoked && !install->Progress().Busy()
+			&& _previewRequests.size() < 512 && !_previewRequests.contains(previewIdentity)
+			&& !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel)
+			&& ImGui::IsRectVisible(ImVec2(area.origin.x, top), ImVec2(area.origin.x + area.width, top + CatalogRowView::HEIGHT))) {
+			const auto requested = install->FetchDetails(row->identifier);
+			(void)requested;
+			_previewRequests.insert(previewIdentity);
+		}
 		ImGui::PushID(row->identifier.c_str());
 		const CatalogRowAction action = CatalogRowView::Draw(area, top, *row, install != nullptr,
 			install != nullptr && install->Progress().Busy());

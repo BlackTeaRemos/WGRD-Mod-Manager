@@ -25,6 +25,11 @@ void InstallService::Poll() {
 	}
 
 	const domain::FetchStatus status = _fetcher->Fetch();
+	if (_detailsOnly && std::chrono::steady_clock::now() >= _detailsDeadline) {
+		_fetcher->Cancel();
+		Conclude_(domain::InstallPhase::Failed, "Preview request timed out");
+		return;
+	}
 
 	{
 		const std::scoped_lock lock(_guard);
@@ -61,6 +66,11 @@ void InstallService::Poll() {
 		}
 
 		_fetcher->Cancel();
+
+		if (_detailsOnly) {
+			Conclude_(domain::InstallPhase::Done, "Details ready");
+			return;
+		}
 
 		Publish_(domain::InstallPhase::Planning, std::string(text::INSTALL_COMPARING));
 

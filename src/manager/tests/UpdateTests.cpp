@@ -49,6 +49,20 @@ TEST_CASE("version rejects malformed text") {
 	REQUIRE_FALSE(VersionNumber::Parse("1.2.999999").has_value());
 }
 
+TEST_CASE("version preserves component boundaries") {
+	const auto maximum = VersionNumber::Parse("99999.99999.99999");
+
+	REQUIRE(maximum.has_value());
+	REQUIRE(maximum->Major() == 99999);
+	REQUIRE(maximum->Minor() == 99999);
+	REQUIRE(maximum->Patch() == 99999);
+	REQUIRE(maximum->ToText() == "99999.99999.99999");
+	REQUIRE_FALSE(VersionNumber::Parse("100000.1.1").has_value());
+	REQUIRE_FALSE(VersionNumber::Parse("1.100000.1").has_value());
+	REQUIRE_FALSE(VersionNumber::Parse("1.1.100000").has_value());
+	REQUIRE_FALSE(VersionNumber::Parse("999999999999999999999999.1.1").has_value());
+}
+
 TEST_CASE("version orders by component") {
 	REQUIRE(VersionNumber(0, 1, 0) < VersionNumber(0, 1, 1));
 	REQUIRE(VersionNumber(0, 1, 9) < VersionNumber(0, 2, 0));
@@ -119,6 +133,39 @@ TEST_CASE("release parse refuses malformed and untagged documents") {
 
 	REQUIRE_FALSE(badTag.has_value());
 	REQUIRE(badTag.error() == ReleaseLookupError::TagRejected);
+}
+
+TEST_CASE("release parse handles independent asset types") {
+	const auto wrongName = GitHubReleaseSource::ParseRelease(
+		R"({"tag_name":"v0.2.0","assets":[{"name":7,"browser_download_url":"https://github.com/owner/repo/releases/download/v0.2.0/wgrd-mod-manager.exe","size":1234}]})"
+	);
+	const auto wrongUrl = GitHubReleaseSource::ParseRelease(
+		R"({"tag_name":"v0.2.0","assets":[{"name":"wgrd-mod-manager.exe","browser_download_url":7,"size":1234}]})"
+	);
+	const auto wrongSize = GitHubReleaseSource::ParseRelease(
+		R"({"tag_name":"v0.2.0","assets":[{"name":"wgrd-mod-manager.exe","browser_download_url":"https://github.com/owner/repo/releases/download/v0.2.0/wgrd-mod-manager.exe","size":"1234"}]})"
+	);
+
+	REQUIRE_FALSE(wrongName.has_value());
+	REQUIRE(wrongName.error() == ReleaseLookupError::AssetMissing);
+	REQUIRE_FALSE(wrongUrl.has_value());
+	REQUIRE(wrongUrl.error() == ReleaseLookupError::ResponseMalformed);
+	REQUIRE(wrongSize.has_value());
+	REQUIRE(wrongSize->assetBytes == 0);
+}
+
+TEST_CASE("release parse does not wrap signed asset size") {
+	const auto negative = GitHubReleaseSource::ParseRelease(
+		R"({"tag_name":"v0.2.0","assets":[{"name":"wgrd-mod-manager.exe","browser_download_url":"https://github.com/owner/repo/releases/download/v0.2.0/wgrd-mod-manager.exe","size":-1}]})"
+	);
+	const auto overrange = GitHubReleaseSource::ParseRelease(
+		R"({"tag_name":"v0.2.0","assets":[{"name":"wgrd-mod-manager.exe","browser_download_url":"https://github.com/owner/repo/releases/download/v0.2.0/wgrd-mod-manager.exe","size":18446744073709551616}]})"
+	);
+
+	REQUIRE(negative.has_value());
+	REQUIRE(negative->assetBytes == 0);
+	REQUIRE(overrange.has_value());
+	REQUIRE(overrange->assetBytes == 0);
 }
 
 TEST_CASE("swapper names staged and retired files beside the executable") {

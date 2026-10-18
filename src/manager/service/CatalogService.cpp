@@ -1,6 +1,7 @@
 #include "manager/service/CatalogService.h"
 
 #include "manager/scan/ModFolderScanner.h"
+#include "manager/identity/ModNameOwnership.h"
 #include "manager/text/ServiceText.h"
 
 #include <algorithm>
@@ -36,17 +37,18 @@ domain::CatalogRow CatalogService::Describe_(
 	const domain::SignedAnnounce& announce,
 	const std::vector<std::string>& installedFolders
 ) const {
-	const bool installed = std::ranges::find(installedFolders, announce.modName
-	                       ) != installedFolders.end();
+	const auto record = _installed->Find(announce.Identifier());
+	const bool installed = record.has_value() && std::ranges::any_of(installedFolders,
+		[&announce](const std::string& folder) {
+			return ModNameOwnership::SameName(folder, announce.modName);
+		});
 
 	domain::CatalogRow row{
 		announce.Identifier(), announce.modName, announce.publisher.ToHex(), announce.version, 0, 0, 0, installed, false, 0, !_registry->IsUsable(announce.publisher)
 	};
 
 	if (installed) {
-		if (const auto record = _installed->Find(announce.Identifier())) {
-			row.installedVersion = record->version;
-		}
+		row.installedVersion = record->version;
 	}
 
 	const auto sealed = _store->Load(announce.manifestDigest.ToHex());
@@ -64,7 +66,7 @@ domain::CatalogRow CatalogService::Describe_(
 		return row;
 	}
 
-	if (manifest->ModName() != announce.modName) {
+	if (manifest->Identifier() != announce.Identifier() || manifest->Version() != announce.version) {
 		return row;
 	}
 
@@ -72,6 +74,9 @@ domain::CatalogRow CatalogService::Describe_(
 	row.chunkCount = manifest->ChunkCount();
 	row.fileCount = manifest->Files().size();
 	row.manifestHeld = true;
+	row.description = manifest->Description();
+	row.preview = manifest->Preview();
+	row.manifestDigest = announce.manifestDigest.ToHex();
 
 	return row;
 }

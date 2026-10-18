@@ -10,6 +10,7 @@
 
 #include <array>
 #include <string>
+#include <set>
 
 namespace wgrd::gui {
 class CatalogScreen {
@@ -36,5 +37,6 @@ private:
 	std::string _notice;
 	std::string _retryIdentifier;
 	bool _noticeError = false;
+	std::set<std::string> _previewRequests;
 };
 }

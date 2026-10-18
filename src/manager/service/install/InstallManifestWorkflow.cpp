@@ -15,6 +15,14 @@
 
 namespace wgrd::manager {
 std::expected<void, domain::InstallStartError> InstallService::Start(std::string_view identifier) {
+	return Start_(identifier, false);
+}
+
+std::expected<void, domain::InstallStartError> InstallService::FetchDetails(std::string_view identifier) {
+	return Start_(identifier, true);
+}
+
+std::expected<void, domain::InstallStartError> InstallService::Start_(std::string_view identifier, const bool detailsOnly) {
 	if (_busy) {
 		return std::unexpected(domain::InstallStartError::Busy);
 	}
@@ -25,6 +33,12 @@ std::expected<void, domain::InstallStartError> InstallService::Start(std::string
 	}
 
 	const bool held = _store->Holds(announce->manifestDigest.ToHex());
+	if (!detailsOnly) {
+		const auto ownership = CheckName_(*announce);
+		if (!ownership.has_value()) {
+			return std::unexpected(ownership.error());
+		}
+	}
 
 	domain::ModManifest manifest;
 
@@ -43,6 +57,11 @@ std::expected<void, domain::InstallStartError> InstallService::Start(std::string
 	}
 
 	JoinWorker_();
+	if (!detailsOnly) {
+		++_requestedDownloads;
+	}
+	_detailsOnly = detailsOnly;
+	_detailsDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
 
 	{
 		const std::scoped_lock lock(_guard);
@@ -60,6 +79,10 @@ std::expected<void, domain::InstallStartError> InstallService::Start(std::string
 
 	if (!held) {
 		BeginManifestFetch_();
+		return {};
+	}
+	if (detailsOnly) {
+		Conclude_(domain::InstallPhase::Done, "Details ready");
 		return {};
 	}
 

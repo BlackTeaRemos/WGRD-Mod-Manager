@@ -85,6 +85,44 @@ TEST_CASE("rejects empty and oversized") {
 	RequireRejected("folder//payload.dat", PayloadPathError::EmptyComponent);
 }
 
+TEST_CASE("enforces payload path limit") {
+	const std::size_t extensionLength = PayloadPathPolicy::PAYLOAD_EXTENSION.size();
+	const std::string pathAtLimitMinusOne(
+		PayloadPathPolicy::PATH_LIMIT - 1 - extensionLength,
+		'a'
+	);
+	const std::string pathAtLimit(pathAtLimitMinusOne.size() + 1, 'a');
+
+	RequireAccepted(pathAtLimitMinusOne + ".dat", pathAtLimitMinusOne + ".dat");
+	RequireAccepted(pathAtLimit + ".dat", pathAtLimit + ".dat");
+	RequireRejected(pathAtLimit + "a.dat", PayloadPathError::TooLong);
+}
+
+TEST_CASE("rejects embedded nul") {
+	std::string path("nested/");
+	path.push_back('\0');
+	path.append("payload.dat");
+
+	RequireRejected(path, PayloadPathError::ControlCharacter);
+}
+
+TEST_CASE("normalisation is idempotent") {
+	const auto first = POLICY.Normalise("folder\\nested/MIXED.dat");
+
+	REQUIRE(first.has_value());
+	const auto second = POLICY.Normalise(*first);
+
+	REQUIRE(second.has_value());
+	REQUIRE(*second == *first);
+}
+
+TEST_CASE("rejects reserved device variants") {
+	RequireRejected("CON.archive.dat", PayloadPathError::ReservedDeviceName);
+	RequireRejected("com1.backup.dat", PayloadPathError::ReservedDeviceName);
+	RequireRejected("folder/aux.data.dat", PayloadPathError::ReservedDeviceName);
+	RequireAccepted("CONX.dat", "CONX.dat");
+}
+
 TEST_CASE("extension check is case insensitive") {
 	RequireAccepted("PAYLOAD.DAT", "PAYLOAD.DAT");
 	RequireAccepted("Payload.Dat", "Payload.Dat");

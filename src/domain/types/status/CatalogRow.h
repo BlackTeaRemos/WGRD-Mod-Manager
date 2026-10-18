@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <string>
+#include <memory>
+#include "domain/types/content/ModPreview.h"
 
 namespace wgrd::domain {
 struct CatalogRow {
@@ -17,6 +19,9 @@ struct CatalogRow {
 	std::uint64_t installedVersion = 0;
 	bool revoked = false;
 	std::string seedFault{};
+	std::string description{};
+	std::shared_ptr<const ModPreview> preview{};
+	std::string manifestDigest{};
 
 	[[nodiscard]] bool Outdated() const {
 		return installed && installedVersion != 0 && version > installedVersion;

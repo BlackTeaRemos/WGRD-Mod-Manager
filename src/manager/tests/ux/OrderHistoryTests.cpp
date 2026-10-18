@@ -70,3 +70,28 @@ TEST_CASE("order edits undo safely") {
 		REQUIRE(order.Current().entries[0].folder == *beta);
 	}
 }
+
+TEST_CASE("order ignores no op moves") {
+	const wgrd::manager::tests::OrderHistoryFixture fixture;
+	wgrd::manager::OrderService order(fixture.Installation());
+
+	const auto before = order.Current();
+	order.Move(0, 0);
+
+	REQUIRE(order.Current().entries.size() == before.entries.size());
+	REQUIRE(order.Current().entries[0].folder == before.entries[0].folder);
+	REQUIRE(order.Current().entries[0].enabled == before.entries[0].enabled);
+	REQUIRE(order.Current().entries[1].folder == before.entries[1].folder);
+	REQUIRE(order.Current().entries[1].enabled == before.entries[1].enabled);
+	REQUIRE_FALSE(order.CanUndo());
+
+	order.Move(99, 0);
+
+	REQUIRE(order.Current().entries.size() == before.entries.size());
+	REQUIRE(order.Current().entries[0].folder == before.entries[0].folder);
+	REQUIRE(order.Current().entries[0].enabled == before.entries[0].enabled);
+	REQUIRE(order.Current().entries[1].folder == before.entries[1].folder);
+	REQUIRE(order.Current().entries[1].enabled == before.entries[1].enabled);
+	REQUIRE_FALSE(order.CanUndo());
+	REQUIRE(order.LastMessage() == "Order position invalid");
+}

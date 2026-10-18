@@ -1,5 +1,6 @@
 ﻿#include "manager/announce/AnnounceCodec.h"
 #include "manager/announce/AnnounceReceiver.h"
+#include "manager/announce/AnnounceStore.h"
 #include "manager/hash/Blake3Hasher.h"
 #include "manager/publish/AnnounceSigner.h"
 #include "manager/publish/SigningKeyStore.h"
@@ -56,8 +57,12 @@ wgrd::domain::ChunkDigest TestInfoHash() {
 	return *digest;
 }
 
-ModManifest MakeManifest(const wgrd::domain::PublisherFingerprint& publisher, const std::uint64_t version) {
-	const auto digest = wgrd::domain::ChunkDigest::FromHex(std::string(64, 'c'));
+ModManifest MakeManifest(
+	const wgrd::domain::PublisherFingerprint& publisher,
+	const std::uint64_t version,
+	const char digestCharacter = 'c'
+) {
+	const auto digest = wgrd::domain::ChunkDigest::FromHex(std::string(64, digestCharacter));
 	REQUIRE(digest.has_value());
 
 	ManifestFile file{"payload.dat", 16, {wgrd::domain::ManifestChunk{*digest, 0, 16}}};
@@ -173,6 +178,29 @@ TEST_CASE("receiver refuses a replay of the same version") {
 	REQUIRE(again.error() == AnnounceRejection::NotNewer);
 }
 
+TEST_CASE("receiver keeps newer signed content") {
+	const TemporaryKeyPath keyPath("sameversion");
+	SigningKeyStore keyStore;
+	const auto identity = keyStore.Create(keyPath.Value(), "tester", "correct horse battery");
+	REQUIRE(identity.has_value());
+	const Blake3Hasher hasher;
+	const AnnounceSigner signer(keyStore, hasher);
+	const auto first = signer.Announce(MakeManifest(identity->fingerprint, 7, 'c'), {}, TestInfoHash());
+	const auto different = signer.Announce(MakeManifest(identity->fingerprint, 7, 'd'), {}, TestInfoHash());
+	REQUIRE(first.has_value());
+	REQUIRE(different.has_value());
+	const KeyRegistry registry({RegisteredKey{identity->fingerprint, identity->publicKey, "tester", false}});
+	AnnounceReceiver receiver(registry, nullptr);
+	REQUIRE(receiver.Accept(AnnounceCodec::Encode(*first)).has_value());
+	const auto rejected = receiver.Accept(AnnounceCodec::Encode(*different));
+	REQUIRE_FALSE(rejected.has_value());
+	REQUIRE(rejected.error() == AnnounceRejection::NotNewer);
+	REQUIRE(receiver.RejectedCount() == 1);
+	const auto retained = receiver.Retained(first->Identifier());
+	REQUIRE(retained.has_value());
+	REQUIRE(retained->manifestDigest == first->manifestDigest);
+}
+
 TEST_CASE("receiver rejects a tampered announce") {
 	const TemporaryKeyPath keyPath("tampered");
 	SigningKeyStore keyStore;
@@ -195,6 +223,29 @@ TEST_CASE("receiver rejects a tampered announce") {
 
 	REQUIRE_FALSE(accepted.has_value());
 	REQUIRE(accepted.error() == AnnounceRejection::SignatureInvalid);
+}
+
+TEST_CASE("receiver restores persisted high water") {
+	const TemporaryKeyPath keyPath("restore");
+	SigningKeyStore keyStore;
+	const auto identity = keyStore.Create(keyPath.Value(), "tester", "correct horse battery");
+	REQUIRE(identity.has_value());
+	const Blake3Hasher hasher;
+	const AnnounceSigner signer(keyStore, hasher);
+	const auto older = signer.Announce(MakeManifest(identity->fingerprint, 3), {}, TestInfoHash());
+	const auto newer = signer.Announce(MakeManifest(identity->fingerprint, 4), {}, TestInfoHash());
+	REQUIRE(older.has_value());
+	REQUIRE(newer.has_value());
+	const KeyRegistry registry({RegisteredKey{identity->fingerprint, identity->publicKey, "tester", false}});
+	wgrd::manager::AnnounceStore store(keyPath.Value().parent_path() / "records");
+	AnnounceReceiver writer(registry, &store);
+	REQUIRE(writer.Accept(AnnounceCodec::Encode(*newer)).has_value());
+	AnnounceReceiver restored(registry, &store);
+	REQUIRE(restored.Restore() == 1);
+	const auto replayed = restored.Accept(AnnounceCodec::Encode(*older));
+	REQUIRE_FALSE(replayed.has_value());
+	REQUIRE(replayed.error() == AnnounceRejection::NotNewer);
+	REQUIRE(restored.Retained(newer->Identifier())->version == 4);
 }
 
 TEST_CASE("receiver rejects an unregistered and a revoked publisher") {

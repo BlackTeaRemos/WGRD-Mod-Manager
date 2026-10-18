@@ -299,7 +299,9 @@ void TransfersScreen::Draw(
 	domain::IAnnounceGossip* gossip,
 	const domain::IBaselineIndexService* baseline
 ) {
-	float cursorY = ScreenToolbar::Draw(area, text::transfers::TITLE, text::transfers::SUBTITLE);
+	const std::uint64_t requested = install != nullptr ? install->RequestedDownloads() : 0;
+	float cursorY = ScreenToolbar::Draw(area, text::transfers::TITLE,
+		std::format(text::transfers::SESSION_DOWNLOADS, requested));
 
 	cursorY = DrawSwarmCard_(area, cursorY + 8.0f, swarm);
 	cursorY = DrawGossip_(area, cursorY + 8.0f, gossip);

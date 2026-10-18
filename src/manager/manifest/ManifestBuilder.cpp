@@ -1,6 +1,8 @@
 #include "manager/manifest/ManifestBuilder.h"
 
 #include "domain/rules/ModNameRule.h"
+#include "manager/scan/ModMetadataReader.h"
+#include "manager/preview/PreviewImageReader.h"
 #include "domain/types/distribution/TransportLimits.h"
 #include <algorithm>
 #include <optional>
@@ -49,6 +51,9 @@ std::expected<std::vector<std::string>, domain::ManifestBuildError> ManifestBuil
 		}
 
 		const auto normalised = _pathPolicy->Normalise(relative.generic_string());
+		if (relative == "thumbnail.png" || relative == "preview.png") {
+			continue;
+		}
 		if (!normalised.has_value()) {
 			return std::unexpected(domain::ManifestBuildError::PathRejected);
 		}
@@ -157,6 +162,15 @@ std::expected<domain::ModManifest, domain::ManifestBuildError> ManifestBuilder::
 		files.push_back(std::move(*described));
 	}
 
-	return domain::ModManifest(publisher, std::string(modName), version, std::move(files));
+	auto preview = PreviewImageReader::Read(modFolder);
+	if (!preview.has_value()) {
+		return std::unexpected(domain::ManifestBuildError::FileUnreadable);
+	}
+	std::shared_ptr<const domain::ModPreview> images;
+	if (!preview->thumbnail.empty() || !preview->image.empty()) {
+		images = std::make_shared<domain::ModPreview>(std::move(*preview));
+	}
+	return domain::ModManifest(publisher, std::string(modName), version, std::move(files),
+		ModMetadataReader::Read(modFolder).description, std::move(images));
 }
 }
