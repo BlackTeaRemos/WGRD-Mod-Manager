@@ -19,6 +19,11 @@ wgrd_add_tests(manager
         ModMetadataTests.cpp
         PatcherTests.cpp
         PayloadPathPolicyTests.cpp
+        extensions/ApprovedManifestFixture.h
+        extensions/SingleChunkFixture.h
+        extensions/UnavailableChunkFixture.h
+        extensions/ExtensionPackageTests.cpp
+        extensions/ExtensionTransferTests.cpp
         ManifestPipelineTests.cpp
         TemporaryTreeTests.cpp
         UpdateRoundTripTests.cpp

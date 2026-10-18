@@ -76,6 +76,17 @@ wgrd_add_module(manager
         publish/PublisherRevocationExporter.cpp
         payload/PayloadPathPolicy.h
         payload/PayloadPathPolicy.cpp
+        extensions/ExtensionPackageContract.h
+        extensions/ExtensionCryptography.h
+        extensions/ExtensionCryptography.cpp
+        extensions/ExtensionManifest.h
+        extensions/ExtensionManifest.cpp
+        extensions/SignedExtensionVerifier.h
+        extensions/SignedExtensionVerifier.cpp
+        extensions/ExtensionInstallApproval.h
+        extensions/ExtensionInstallApproval.cpp
+        extensions/files/ApprovedExtensionFile.h
+        extensions/files/ApprovedExtensionFile.cpp
         hash/Blake3Hasher.h
         hash/Blake3Hasher.cpp
         io/MappedFile.h
@@ -185,6 +196,7 @@ target_link_libraries(wgrd_manager PUBLIC
     BLAKE3::blake3
     nlohmann_json::nlohmann_json
     crypt32
+    bcrypt
     winhttp
 )
 

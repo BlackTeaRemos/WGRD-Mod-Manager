@@ -24,6 +24,8 @@ namespace wgrd::manager {
 			return text::INSTALL_WRITE_FAILED;
 		case InstallError::SwapFailed:
 			return text::INSTALL_SWAP_FAILED;
+		case InstallError::ExtensionRejected:
+			return "Extension approval rejected";
 	}
 
 	return text::INSTALL_FAILED;

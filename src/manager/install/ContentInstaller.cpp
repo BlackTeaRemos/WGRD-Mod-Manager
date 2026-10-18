@@ -1,6 +1,7 @@
 #include "manager/install/ContentInstaller.h"
 
 #include "manager/io/MappedFile.h"
+#include "manager/extensions/ExtensionInstallApproval.h"
 
 #include <chrono>
 #include <fstream>
@@ -185,6 +186,9 @@ std::expected<InstallReport, InstallError> ContentInstaller::Materialise_(
 		if (!written.has_value()) {
 			return std::unexpected(written.error());
 		}
+	}
+	if (!ExtensionInstallApproval::Verify(plan, modFolder, STAGING_SUFFIX, *_hasher)) {
+		return std::unexpected(InstallError::ExtensionRejected);
 	}
 
 	for (const domain::FilePlan& file : plan.Files()) {

@@ -1,4 +1,5 @@
 #include "manager/manifest/ManifestCodec.h"
+#include "manager/extensions/ExtensionPackageContract.h"
 #include "manager/preview/PreviewImageCodec.h"
 
 #include "domain/types/distribution/TransportLimits.h"
@@ -155,6 +156,7 @@ std::expected<domain::ModManifest, domain::ManifestDecodeError> ManifestCodec::D
 	files.reserve(filesField.size());
 
 	std::size_t chunkTotal = 0;
+	bool extensionDeclared = false;
 
 	for (const Json& fileField : filesField) {
 		if (!fileField.is_object()) {
@@ -178,6 +180,14 @@ std::expected<domain::ModManifest, domain::ManifestDecodeError> ManifestCodec::D
 		const auto normalised = _pathPolicy->Normalise(pathField.get<std::string>());
 		if (!normalised.has_value()) {
 			return std::unexpected(domain::ManifestDecodeError::PathRejected);
+		}
+		if (*normalised == ExtensionPackageContract::FILE_NAME) {
+			const std::uint64_t extensionBytes = sizeField.get<std::uint64_t>();
+			if (extensionDeclared || extensionBytes < ExtensionPackageContract::MIN_PACKAGE_BYTES
+			    || extensionBytes > ExtensionPackageContract::MAX_PACKAGE_BYTES) {
+				return std::unexpected(domain::ManifestDecodeError::PathRejected);
+			}
+			extensionDeclared = true;
 		}
 
 		if (sizeField.get<std::uint64_t>() > domain::limits::MANIFEST_FILE_BYTES) {

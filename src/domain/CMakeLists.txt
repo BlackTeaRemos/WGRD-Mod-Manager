@@ -82,6 +82,7 @@ wgrd_add_module(domain
         interfaces/content/IManifestCodec.h
         interfaces/content/IManifestDiffer.h
         interfaces/content/IPayloadPathPolicy.h
+        interfaces/content/extensions/IExtensionPackageVerifier.h
         interfaces/order/IOrderInspector.h
         interfaces/order/IOrderService.h
         interfaces/order/IProfileService.h

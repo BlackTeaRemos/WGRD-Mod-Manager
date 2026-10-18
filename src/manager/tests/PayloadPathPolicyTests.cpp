@@ -131,3 +131,22 @@ TEST_CASE("extension check is case insensitive") {
 TEST_CASE("rejects bare extension without stem") {
 	RequireRejected(".dat", PayloadPathError::ExtensionNotAllowed);
 }
+
+TEST_CASE("Extension root permitted") {
+	RequireAccepted("blacktearemos_extensions.dll", "blacktearemos_extensions.dll");
+	RequireAccepted("BLACKTEAREMOS_EXTENSIONS.DLL", "blacktearemos_extensions.dll");
+}
+
+TEST_CASE("Other DLL paths rejected") {
+	RequireRejected("other.dll", PayloadPathError::ExtensionNotAllowed);
+	RequireRejected("nested/blacktearemos_extensions.dll", PayloadPathError::ExtensionNotAllowed);
+	RequireRejected("blacktearemos_extensions.dll.exe", PayloadPathError::ExtensionNotAllowed);
+	RequireRejected("blacktearemos_extensions.dll:payload", PayloadPathError::AlternateStream);
+}
+
+TEST_CASE("Extension sidecars rejected") {
+	RequireRejected("blacktearemos_extensions.manifest", PayloadPathError::ExtensionNotAllowed);
+	RequireRejected("blacktearemos_extensions.sig", PayloadPathError::ExtensionNotAllowed);
+	RequireRejected("extensions.required", PayloadPathError::ExtensionNotAllowed);
+	RequireRejected("fpv_descriptor_lifetime.log", PayloadPathError::ExtensionNotAllowed);
+}

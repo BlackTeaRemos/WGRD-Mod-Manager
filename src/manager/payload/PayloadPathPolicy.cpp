@@ -1,4 +1,5 @@
 #include "manager/payload/PayloadPathPolicy.h"
+#include "manager/extensions/ExtensionPackageContract.h"
 
 #include <algorithm>
 #include <array>
@@ -118,6 +119,13 @@ std::expected<std::string, domain::PayloadPathError> PayloadPathPolicy::Normalis
 	}
 
 	const std::string_view leaf = components.back();
+
+	if (ToUpper_(leaf) == ToUpper_(ExtensionPackageContract::FILE_NAME)) {
+		if (components.size() != 1) {
+			return std::unexpected(domain::PayloadPathError::ExtensionNotAllowed);
+		}
+		return std::string(ExtensionPackageContract::FILE_NAME);
+	}
 
 	if (ToUpper_(leaf) == ToUpper_(METADATA_NAME)) {
 		if (components.size() != 1) {

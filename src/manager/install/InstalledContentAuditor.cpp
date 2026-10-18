@@ -1,6 +1,8 @@
 #include "manager/install/InstalledContentAuditor.h"
 
 #include "manager/io/MappedFile.h"
+#include "manager/extensions/ExtensionPackageContract.h"
+#include "manager/extensions/SignedExtensionVerifier.h"
 
 #include <span>
 #include <utility>
@@ -19,7 +21,10 @@ InstalledContentAuditor::Audit InstalledContentAuditor::Examine(
 	for (const domain::ManifestFile& file : manifest.Files()) {
 		const auto mapped = MappedFile::Open(modFolder / file.path);
 
-		const bool readable = mapped.has_value() && mapped->Size() == file.size;
+		const SignedExtensionVerifier verifier;
+		const bool approved = file.path != ExtensionPackageContract::FILE_NAME
+		    || (mapped.has_value() && verifier.Verify(mapped->Data()).has_value());
+		const bool readable = approved && mapped.has_value() && mapped->Size() == file.size;
 
 		const std::span<const std::byte> content = readable
 		                                           ? mapped->Data()

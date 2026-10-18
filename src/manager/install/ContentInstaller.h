@@ -21,6 +21,7 @@ enum class InstallError {
 	, RemoteChunkCorrupt
 	, WriteFailed
 	, SwapFailed
+	, ExtensionRejected
 };
 
 struct InstallReport {

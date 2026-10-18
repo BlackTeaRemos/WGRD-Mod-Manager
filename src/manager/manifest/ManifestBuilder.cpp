@@ -1,4 +1,6 @@
 #include "manager/manifest/ManifestBuilder.h"
+#include "manager/extensions/ExtensionPackageContract.h"
+#include "manager/extensions/files/ApprovedExtensionFile.h"
 
 #include "domain/rules/ModNameRule.h"
 #include "manager/scan/ModMetadataReader.h"
@@ -62,6 +64,9 @@ std::expected<std::vector<std::string>, domain::ManifestBuildError> ManifestBuil
 	}
 
 	std::ranges::sort(paths);
+	if (std::ranges::count(paths, std::string(ExtensionPackageContract::FILE_NAME)) > 1) {
+		return std::unexpected(domain::ManifestBuildError::PathRejected);
+	}
 
 	return paths;
 }
@@ -70,6 +75,14 @@ std::expected<domain::ManifestFile, domain::ManifestBuildError> ManifestBuilder:
 	const std::filesystem::path& modFolder,
 	const std::string& relativePath
 ) const {
+	std::optional<MappedFile> approvedExtension;
+	if (relativePath == ExtensionPackageContract::FILE_NAME) {
+		auto mapped = ApprovedExtensionFile::Open(modFolder / relativePath);
+		if (!mapped.has_value()) {
+			return std::unexpected(domain::ManifestBuildError::PathRejected);
+		}
+		approvedExtension.emplace(std::move(*mapped));
+	}
 	std::optional<domain::ManifestFile> described = _lister.Describe(modFolder / relativePath, relativePath);
 	if (!described.has_value()) {
 		return std::unexpected(domain::ManifestBuildError::FileUnreadable);
