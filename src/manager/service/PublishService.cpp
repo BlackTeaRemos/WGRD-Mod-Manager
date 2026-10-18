@@ -94,7 +94,7 @@ PublishService::PublishService(
 	, _catalogue(&catalogue)
 	, _registry(&registry)
 	, _seeding(seeding)
-	, _installed(installed)
+	, _installed(installed != nullptr ? *installed : InstalledReleaseStore(_dataDirectory / "installed"))
 	, _keyStore()
 	, _builder(chunker, hasher, pathPolicy)
 	, _codec(pathPolicy)

@@ -121,7 +121,7 @@ private:
 	const domain::IAnnounceCatalogue* _catalogue;
 	domain::IKeyRegistry* _registry;
 	domain::ISeedingService* _seeding;
-	const InstalledReleaseStore* _installed;
+	InstalledReleaseStore _installed;
 
 	SigningKeyStore _keyStore;
 	ManifestBuilder _builder;

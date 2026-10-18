@@ -77,7 +77,7 @@ std::expected<domain::PublishedRelease, domain::PublishError> PublishService::Pu
 	}
 
 	const std::string identifier = identity->fingerprint.ToHex() + "/" + std::string(folder);
-	if (ModNameOwnership::Conflicts(folder, identifier, *_catalogue, _installed)) {
+	if (ModNameOwnership::Conflicts(folder, identifier, *_catalogue, &_installed)) {
 		_message = "Mod name already used";
 		return std::unexpected(domain::PublishError::NameConflict);
 	}
@@ -101,7 +101,7 @@ std::expected<domain::PublishedRelease, domain::PublishError> PublishService::Pu
 		return std::unexpected(domain::PublishError::ManifestBuildFailed);
 	}
 
-	if (ModNameOwnership::Conflicts(folder, identifier, *_catalogue, _installed)) {
+	if (ModNameOwnership::Conflicts(folder, identifier, *_catalogue, &_installed)) {
 		_message = "Mod name already used";
 		return std::unexpected(domain::PublishError::NameConflict);
 	}
@@ -146,13 +146,13 @@ std::expected<domain::PublishedRelease, domain::PublishError> PublishService::Pu
 
 	_versions.insert_or_assign(identifier, version);
 
-	if (_installed != nullptr) {
-		const bool recorded = _installed->Save(domain::InstalledRelease{
-				identifier, manifest->ModName(), version, manifestDigest
-			}
-		);
-
-		(void)recorded;
+	const bool recorded = _installed.Save(domain::InstalledRelease{
+			identifier, manifest->ModName(), version, manifestDigest
+		}
+	);
+	if (!recorded) {
+		_message = text::MANIFEST_STORE_FAILED;
+		return std::unexpected(domain::PublishError::StoreFailed);
 	}
 
 	if (_seeding != nullptr) {

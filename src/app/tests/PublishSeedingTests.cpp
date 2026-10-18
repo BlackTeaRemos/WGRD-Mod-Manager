@@ -219,7 +219,11 @@ TEST_CASE("catalog refresh seeds a published chunk set") {
 
 	REQUIRE(looseChunkFiles == 0);
 
-	REQUIRE(installedStore.LoadAll().empty());
+	REQUIRE(installedStore.LoadAll().size() == 1);
+	const auto recorded = installedStore.Find(published->identifier);
+	REQUIRE(recorded.has_value());
+	REQUIRE(recorded->version == published->version);
+	REQUIRE(recorded->manifestDigest == published->manifestDigest);
 
 	catalogService.Refresh();
 

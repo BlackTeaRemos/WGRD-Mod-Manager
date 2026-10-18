@@ -10,6 +10,8 @@ wgrd_add_tests(manager
         ManifestCodecSchemaTests.cpp
         ManifestCodecLimitTests.cpp
         PublishSigningTests.cpp
+        publishing/PublicationOwnershipFixture.h
+        publishing/PublicationOwnershipTests.cpp
         RevocationCertificateTests.cpp
         RevocationReloadTests.cpp
         ContentInstallerFailureTests.cpp

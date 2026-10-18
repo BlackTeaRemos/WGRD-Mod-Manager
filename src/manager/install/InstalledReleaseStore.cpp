@@ -169,6 +169,7 @@ bool InstalledReleaseStore::Save(const domain::InstalledRelease& release) const 
 	}
 
 	output << document.dump(2) << "\n";
+	output.close();
 
 	return static_cast<bool>(output);
 }
